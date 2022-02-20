@@ -1,4 +1,5 @@
-import type { Model } from "mongoose";
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import type { AnyObject, Model } from "mongoose";
 
 export interface MongoTenantOptions {
   /**
@@ -8,7 +9,7 @@ export interface MongoTenantOptions {
   enabled?: boolean;
   /**
    * The name of the tenant id field.
-   * @default "tenantId"
+   * @default "tenant"
    */
   tenantIdKey?: string;
   /**
@@ -16,11 +17,6 @@ export interface MongoTenantOptions {
    * @default String
    */
   tenantIdType?: unknown;
-  /**
-   * The name of the tenant id getter method.
-   * @default "getTenantId"
-   */
-  tenantIdGetter?: string;
   /**
    * The name of the tenant bound model getter method.
    * @default "byTenant"
@@ -33,6 +29,18 @@ export interface MongoTenantOptions {
   requireTenantId?: boolean;
 }
 
-export declare class BoundModel extends Model {
-  static get hasTenantContext(): true;
+export interface BoundModelFields<T> {
+  getTenant(): T[keyof T];
+  readonly hasTenantContext: true;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface BoundModel<
+  T,
+  TQueryHelpers = Record<string, never>,
+  TMethodsAndOverrides = Record<string, never>,
+  TVirtuals = Record<string, never>,
+> extends Omit<Model<T, TQueryHelpers, TMethodsAndOverrides, TVirtuals>, keyof BoundModelFields<T>>,
+    BoundModelFields<T> {
+  new (doc?: T, fields?: any | null, options?: boolean | AnyObject): T;
 }

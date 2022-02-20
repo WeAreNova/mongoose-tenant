@@ -8,16 +8,151 @@
 
 import type mongodb from "mongodb";
 import type {
+  Aggregate,
+  AnyKeys,
+  AnyObject,
+  Callback,
+  CallbackWithoutResult,
   Connection,
+  Document,
   FilterQuery,
+  HydratedDocument,
   IndexDefinition,
   IndexOptions,
+  InsertManyOptions,
+  InsertManyResult,
   Model,
   PipelineStage,
   Query,
+  QueryOptions,
   Schema,
 } from "mongoose";
-import type { MongoTenantOptions } from "./types";
+import type { BoundModel, MongoTenantOptions } from "./types";
+
+const createBoundModel = <
+  T,
+  TQueryHelpers = Record<string, never>,
+  TMethodsAndOverrides = Record<string, never>,
+  TVirtuals = Record<string, never>,
+>(
+  BaseModel: Model<T, TQueryHelpers, TMethodsAndOverrides, TVirtuals>,
+  tenantId: unknown,
+  tenantIdKey: string,
+  db: Connection,
+): BoundModel<T, TQueryHelpers, TMethodsAndOverrides, TVirtuals> => {
+  return class MongoTenantModel extends (BaseModel as Model<any>) {
+    public db = db;
+    public readonly hasTenantContext = true as const;
+    public getTenant() {
+      return tenantId as T[keyof T];
+    }
+
+    aggregate<R>(
+      // eslint-disable-next-line @typescript-eslint/ban-types
+      ...args: [pipeline?: PipelineStage[], options?: mongodb.AggregateOptions | Function, callback?: Callback<R[]>]
+    ): Aggregate<R[]> {
+      const [pipeline] = args;
+      const tId = this.getTenant();
+
+      if (!pipeline) {
+        args[0] = [{ $match: { [tenantIdKey]: tId } }];
+      } else if ((pipeline[0] as PipelineStage.Match).$match) {
+        (pipeline[0] as PipelineStage.Match).$match[tenantIdKey] = tId;
+      } else {
+        pipeline.unshift({ $match: { [tenantIdKey]: tId } });
+      }
+
+      return super.aggregate.apply(this, args);
+    }
+
+    deleteOne(
+      ...args: [
+        filter?: FilterQuery<T> | CallbackWithoutResult,
+        options?: QueryOptions | CallbackWithoutResult,
+        callback?: CallbackWithoutResult,
+      ]
+    ) {
+      const [filter] = args;
+      const tId = this.getTenant();
+
+      if (!filter || typeof filter === "function") {
+        args.unshift({ [tenantIdKey as keyof T]: tId });
+      } else {
+        filter[tenantIdKey as keyof T] = tId;
+      }
+      return super.deleteOne(...args);
+    }
+
+    deleteMany(
+      ...args: [
+        filter?: FilterQuery<T> | CallbackWithoutResult,
+        options?: QueryOptions | CallbackWithoutResult,
+        callback?: CallbackWithoutResult,
+      ]
+    ) {
+      const [filter] = args;
+      const tId = this.getTenant();
+
+      if (!filter || typeof filter === "function") {
+        args.unshift({ [tenantIdKey as keyof T]: tId });
+      } else {
+        filter[tenantIdKey as keyof T] = tId;
+      }
+      return super.deleteMany(...args);
+    }
+
+    remove(
+      ...args: [
+        filter?: FilterQuery<T> | CallbackWithoutResult,
+        options?: QueryOptions | CallbackWithoutResult,
+        callback?: CallbackWithoutResult,
+      ]
+    ) {
+      const [filter] = args;
+      const tId = this.getTenant();
+
+      if (!filter || typeof filter === "function") {
+        args.unshift({ [tenantIdKey as keyof T]: tId });
+      } else {
+        filter[tenantIdKey as keyof T] = tId;
+      }
+      return super.remove(...args);
+    }
+
+    insertMany(
+      docs: AnyKeys<T> | AnyObject | Array<AnyKeys<T> | AnyObject>,
+      options?:
+        | InsertManyOptions
+        | Callback<Array<HydratedDocument<T, TMethodsAndOverrides, TVirtuals>> | InsertManyResult>,
+      callback?: Callback<Array<HydratedDocument<T, TMethodsAndOverrides, TVirtuals>> | InsertManyResult>,
+    ) {
+      const tId = this.getTenant();
+      const cb = typeof options === "function" ? options : callback;
+
+      // Model.insertMany supports a single document as parameter
+      if (!Array.isArray(docs)) {
+        docs[tenantIdKey as keyof typeof docs] = tId;
+      } else {
+        docs.forEach(function (doc) {
+          doc[tenantIdKey as keyof typeof doc] = tId;
+        });
+      }
+
+      // ensure the returned docs are instanced of the bound multi tenant model
+      return super.insertMany(
+        docs,
+        (err: Error | undefined, res: HydratedDocument<T, TMethodsAndOverrides, TVirtuals>[]) => {
+          if (!cb) return;
+          if (err) return cb(err, res);
+          cb(
+            null,
+            res.map((doc) => new this(doc)),
+          );
+        },
+      );
+    }
+  } as BoundModel<T, TQueryHelpers, TMethodsAndOverrides, TVirtuals>;
+};
 
 /**
  * MongoTenant is a class aimed for use in mongoose schema plugin scope.
@@ -27,7 +162,7 @@ import type { MongoTenantOptions } from "./types";
 class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
   public schema: S;
   private options: Required<MongoTenantOptions>;
-  private _modelCache: Record<string, Record<string, ReturnType<typeof this.createTenantAwareModel>>>;
+  private _modelCache: Record<string, Record<string, BoundModel<unknown>>>;
 
   /**
    * Create a new mongo tenant from a given schema.
@@ -35,14 +170,12 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
    * @param options - the configuration options.
    */
   constructor(schema: S, options: O = {} as O) {
-    const modelCache = {};
-    this._modelCache = modelCache;
+    this._modelCache = {};
     this.schema = schema;
     this.options = {
       enabled: true,
-      tenantIdKey: "tenantId",
+      tenantIdKey: "tenant",
       tenantIdType: String,
-      tenantIdGetter: "getTenantId",
       accessorMethod: "byTenant",
       requireTenantId: false,
       ...options,
@@ -94,15 +227,6 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
   }
 
   /**
-   * Return the name of the tenant id getter method.
-   *
-   * @returns {string}
-   */
-  getTenantIdGetter(): typeof this.options["tenantIdGetter"] {
-    return this.options.tenantIdGetter;
-  }
-
-  /**
    * Check if tenant id is a required field.
    *
    * @return {boolean}
@@ -120,7 +244,7 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
    *
    * @param {MongoTenant} plugin
    */
-  isCompatibleTo<T extends MongoTenant<any, any>>(plugin?: T): boolean {
+  isCompatibleTo<T extends MongoTenant<Schema<unknown>, Record<string, unknown>>>(plugin?: T): boolean {
     return Boolean(
       plugin &&
         typeof plugin.getAccessorMethod === "function" &&
@@ -133,16 +257,14 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
    * Inject tenantId field into schema definition.
    */
   extendSchema(): this {
-    if (this.isEnabled()) {
-      const tenantField = {
-        [this.getTenantIdKey()]: {
-          index: true,
-          type: this.getTenantIdType(),
-          required: this.isTenantIdRequired(),
-        },
-      };
-      this.schema.add(tenantField);
-    }
+    if (!this.isEnabled()) return this;
+    this.schema.add({
+      [this.getTenantIdKey()]: {
+        index: true,
+        type: this.getTenantIdType(),
+        required: this.isTenantIdRequired(),
+      },
+    });
     return this;
   }
 
@@ -155,7 +277,6 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
     // apply tenancy awareness to schema level unique indexes
     this.schema.indexes().forEach((idx) => {
       const index = idx as unknown as [def: IndexDefinition, options: IndexOptions];
-      // extend uniqueness of indexes by tenant id field
       // skip if `preserveUniqueKey` of the index is set to true
       if (index[1].unique !== true || index[1].preserveUniqueKey === true) return;
 
@@ -168,12 +289,7 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
 
     // apply tenancy awareness to field level unique indexes
     this.schema.eachPath((key, path) => {
-      // skip if perserveUniqueKey of an unique field is set to true
       if (path.options.unique !== true || path.options.preserveUniqueKey === true) return;
-
-      // delete the old index
-      path._index = null;
-
       // create a new one that includes the tenant id field
       this.schema.index(
         {
@@ -183,6 +299,7 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
         { ...path.options, unique: true },
       );
     });
+
     return this;
   }
 
@@ -193,23 +310,26 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
    * @returns {MongoTenant}
    */
   injectApi(): this {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const self = this;
+    const isEnabled = this.isEnabled();
+    const modelCache = this._modelCache;
+    const createTenantAwareModel = this.createTenantAwareModel.bind(this);
 
-    this.schema.statics[this.getAccessorMethod()] = function (tenantId: unknown) {
-      const Model = this.base.model(this.modelName);
-      if (!self.isEnabled()) return Model;
+    this.schema.static(this.getAccessorMethod(), function (tenantId: unknown) {
+      if (!isEnabled) return this;
+      if (!modelCache[this.modelName]) modelCache[this.modelName] = {};
+
       const strTenantId = String(tenantId);
-      const modelCache = self._modelCache[this.modelName] || (self._modelCache[this.modelName] = {});
-
+      const cachedModels = modelCache[this.modelName];
       // lookup tenant-bound model in cache
-      if (!modelCache[strTenantId]) {
+      if (!cachedModels[strTenantId]) {
         // Cache the tenant bound model class.
-        modelCache[strTenantId] = self.createTenantAwareModel(Model, tenantId);
+        cachedModels[strTenantId] = createTenantAwareModel(this, tenantId);
       }
 
-      return modelCache[strTenantId];
-    };
+      return cachedModels[strTenantId];
+    });
+
+    const self = this;
     Object.assign(this.schema.statics, {
       get mongoTenant() {
         return self;
@@ -226,106 +346,30 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
    * @param BaseModel
    * @param tenantId
    */
-  createTenantAwareModel(BaseModel: Model<any>, tenantId: unknown) {
-    const tenantIdGetter = this.getTenantIdGetter();
+  createTenantAwareModel<T extends Model<unknown>>(BaseModel: T, tenantId: unknown) {
     const tenantIdKey = this.getTenantIdKey();
-
     const db = this.createTenantAwareDb(BaseModel.db, tenantId);
 
-    class MongoTenantModel extends BaseModel implements Model<any> {
-      static get hasTenantContext() {
-        return true;
-      }
-      private static _getTenantId() {
-        return tenantId;
-      }
-      public static [tenantIdGetter]() {
-        return tenantId;
-      }
-
-      static aggregate(...args: [pipeline: PipelineStage[], callback: mongodb.Callback]) {
-        const [pipeline] = args;
-        if (!pipeline) return super.aggregate.apply(this, args);
-
-        const tId = this._getTenantId();
-        if ((pipeline[0] as PipelineStage.Match).$match) {
-          (pipeline[0] as PipelineStage.Match).$match[tenantIdKey] = tId;
-        } else {
-          pipeline.unshift({ $match: { [tenantIdKey]: tId } });
-        }
-
-        return super.aggregate.apply(this, args);
-      }
-
-      static deleteOne(...args: [filter: FilterQuery<any>]) {
-        const [filter] = args;
-        filter[tenantIdKey] = this._getTenantId();
-        return super.deleteOne(...args);
-      }
-
-      static deleteMany(...args: [filter: FilterQuery<any>]) {
-        const [filter] = args;
-        filter[tenantIdKey] = this._getTenantId();
-        return super.deleteMany(...args);
-      }
-
-      static remove(...args: [filter: FilterQuery<any>, callback?: mongodb.Callback]) {
-        let [filter] = args;
-        if (args.length === 1 && typeof filter === "function") {
-          args[1] = filter;
-          filter = {};
-        }
-        filter[tenantIdKey] = this._getTenantId();
-        return super.remove(args);
-      }
-
-      static insertMany(docs: any | any[], callback?: mongodb.Callback) {
-        const self = this;
-        const tId = this._getTenantId();
-
-        // Model.inserMany supports a single document as parameter
-        if (!Array.isArray(docs)) {
-          docs[tenantIdKey] = tId;
-        } else {
-          docs.forEach(function (doc, key) {
-            doc[tenantIdKey] = tId;
-          });
-        }
-
-        // ensure the returned docs are instanced of the bound multi tenant model
-        return super.insertMany(docs, (err, docs) => {
-          if (err) {
-            return callback && callback(err);
-          }
-
-          callback &&
-            callback(
-              null,
-              docs.map((doc) => new self(doc)),
-            );
-        });
-      }
-
-      static get db() {
-        return db;
-      }
-    }
+    const MongoTenantModel = createBoundModel.call(this, BaseModel, tenantId, tenantIdKey, db);
 
     // inherit all static properties from the mongoose base model
-    for (let staticProperty of Object.getOwnPropertyNames(BaseModel)) {
-      if (MongoTenantModel.hasOwnProperty(staticProperty) || ["arguments", "caller"].indexOf(staticProperty) !== -1) {
+    for (const staticProperty of Object.getOwnPropertyNames(BaseModel)) {
+      if (
+        Object.prototype.hasOwnProperty.call(MongoTenantModel, staticProperty) ||
+        ["arguments", "caller"].indexOf(staticProperty) !== -1
+      ) {
         continue;
       }
 
-      let descriptor = Object.getOwnPropertyDescriptor(BaseModel, staticProperty);
-      Object.defineProperty(MongoTenantModel, staticProperty, descriptor);
+      const descriptor = Object.getOwnPropertyDescriptor(BaseModel, staticProperty);
+      if (descriptor) Object.defineProperty(MongoTenantModel, staticProperty, descriptor);
     }
 
     // create tenant models for discriminators if they exist
     if (BaseModel.discriminators) {
       MongoTenantModel.discriminators = {};
 
-      for (let key in BaseModel.discriminators) {
+      for (const key in BaseModel.discriminators) {
         MongoTenantModel.discriminators[key] = this.createTenantAwareModel(BaseModel.discriminators[key], tenantId);
       }
     }
@@ -347,7 +391,6 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
       const unawareModel = unawareDb.model(name);
       const otherPlugin = unawareModel.mongoTenant;
       if (!self.isCompatibleTo(otherPlugin)) return unawareModel;
-
       return (unawareModel as any)[otherPlugin!.getAccessorMethod()](tenantId);
     };
     return awareDb;
@@ -355,29 +398,27 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
 
   /**
    * Install schema middleware to guard the tenant context of models.
-   *
-   * @returns {MongoTenant}
    */
-  installMiddleWare(): this {
-    const self = this;
-    const tenantIdGetter = this.getTenantIdGetter();
+  installMiddleWare() {
     const tenantIdKey = this.getTenantIdKey();
 
     function preFindOrCount(this: Query<unknown, unknown>, next: () => void) {
       if (this.model.hasTenantContext) {
-        this._conditions[tenantIdKey] = this.model[tenantIdGetter]();
+        this.setQuery({ ...this.getQuery(), [tenantIdKey]: this.model.getTenant!() });
       }
       next();
     }
-    this.schema.pre("count", preFindOrCount);
     this.schema.pre("find", preFindOrCount);
-    this.schema.pre("countDocuments", preFindOrCount);
     this.schema.pre("findOne", preFindOrCount);
     this.schema.pre("findOneAndRemove", preFindOrCount);
+    this.schema.pre("count", preFindOrCount);
+    this.schema.pre("countDocuments", preFindOrCount);
 
     function preUpdate(this: Query<unknown, unknown>, next: () => void) {
       if (this.model.hasTenantContext) {
-        self._guardUpdateQuery(this);
+        const tenantId = this.model.getTenant!();
+        this.setQuery({ ...this.getQuery(), [tenantIdKey]: tenantId });
+        this.set(tenantIdKey, tenantId);
       }
       next();
     }
@@ -385,40 +426,13 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
     this.schema.pre("update", preUpdate);
     this.schema.pre("updateMany", preUpdate);
 
-    this.schema.pre("save", function preSave(next) {
-      if (this.constructor.hasTenantContext) {
-        this[tenantIdKey] = this.constructor[tenantIdGetter]();
-      }
+    this.schema.pre("save", function preSave(this: Document, next) {
+      const model = this.constructor as Model<unknown>;
+      if (model.hasTenantContext) this.set(tenantIdKey, model.getTenant!());
       next();
     });
 
     return this;
-  }
-
-  /**
-   * Avoid breaking tenant context from update operations.
-   *
-   * @param {mongoose.Query} query
-   * @private
-   */
-  private _guardUpdateQuery(query: Query<unknown, unknown>) {
-    const tenantIdGetter = this.getTenantIdGetter();
-    const tenantIdKey = this.getTenantIdKey();
-    const tenantId = query.model[tenantIdGetter]();
-
-    query._conditions[tenantIdKey] = tenantId;
-
-    const update = query.getUpdate()!;
-    if (Array.isArray(update)) return;
-    // avoid jumping tenant context when overwriting a model.
-    if ((update.$set && tenantIdKey in update.$set) || query.getOptions().overwrite) {
-      query.set(tenantIdKey, tenantId);
-    }
-
-    // avoid jumping tenant context from $set operations
-    if (query.get(tenantIdKey) !== tenantId) {
-      query.set(tenantIdKey, tenantId);
-    }
   }
 }
 
@@ -432,7 +446,5 @@ function mongoTenantPlugin(schema: Schema, options: MongoTenantOptions) {
   const mongoTenant = new MongoTenant(schema, options);
   mongoTenant.apply();
 }
-
-mongoTenantPlugin.MongoTenant = MongoTenant;
 
 export default mongoTenantPlugin;
