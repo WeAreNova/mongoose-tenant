@@ -29,9 +29,9 @@ export interface MongoTenantOptions {
   requireTenantId?: boolean;
 }
 
-export interface BoundModelFields<T> {
-  getTenant(): T[keyof T];
-  readonly hasTenantContext: true;
+export declare class BoundModelFields<T> {
+  public getTenant(): T[keyof T];
+  public readonly hasTenantContext: true;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
