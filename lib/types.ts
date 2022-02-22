@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import type { AnyObject, Model } from "mongoose";
+import type { AnyObject, HydratedDocument, Model, ObjectId, Schema } from "mongoose";
 
-export interface MongoTenantOptions {
+export interface MongooseTenantOptions {
   /**
    * Whether the mongo tenant plugin is enabled.
    * @default true
@@ -29,10 +29,17 @@ export interface MongoTenantOptions {
   requireTenantId?: boolean;
 }
 
-export declare class BoundModelFields<T> {
+export declare class BoundFields<T> {
   public getTenant(): T[keyof T];
+  public byTenant(tenantId: unknown): this;
   public readonly hasTenantContext: true;
 }
+
+export type BoundDocument<
+  T,
+  TMethodsAndOverrides = Record<string, never>,
+  TVirtuals = Record<string, never>,
+> = HydratedDocument<T, TMethodsAndOverrides & BoundFields<T>, TVirtuals>;
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface BoundModel<
@@ -40,7 +47,15 @@ export interface BoundModel<
   TQueryHelpers = Record<string, never>,
   TMethodsAndOverrides = Record<string, never>,
   TVirtuals = Record<string, never>,
-> extends Omit<Model<T, TQueryHelpers, TMethodsAndOverrides, TVirtuals>, keyof BoundModelFields<T>>,
-    BoundModelFields<T> {
-  new (doc?: T, fields?: any | null, options?: boolean | AnyObject): T;
+> extends Omit<Model<T, TQueryHelpers, TMethodsAndOverrides & BoundFields<T>, TVirtuals>, keyof BoundFields<T>>,
+    BoundFields<T> {
+  new (doc?: T, fields?: any | null, options?: boolean | AnyObject): BoundDocument<
+    T,
+    TMethodsAndOverrides & Pick<BoundFields<T>, "getTenant">,
+    TVirtuals
+  >;
+
+  /** Adds a discriminator type. */
+  discriminator<D>(name: string | number, schema: Schema, value?: string | number | ObjectId): BoundModel<D>;
+  discriminator<NewT, U>(name: string | number, schema: Schema<NewT, U>, value?: string | number | ObjectId): U;
 }

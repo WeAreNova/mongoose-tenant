@@ -24,7 +24,7 @@ import type {
   PipelineStage,
   Schema,
 } from "mongoose";
-import type { BoundModel, MongoTenantOptions } from "./types";
+import type { BoundModel, MongooseTenantOptions } from "./types";
 
 function createBoundModel<
   TBase extends new (...args: any[]) => Model<T, TQueryHelpers, TMethodsAndOverrides, TVirtuals>,
@@ -36,6 +36,7 @@ function createBoundModel<
   return class extends BaseModel {
     public db = db;
     public readonly hasTenantContext = true as const;
+    // @ts-expect-error - getTenant is optional on a base model but required on a bound model
     public getTenant() {
       return tenantId as T[keyof T];
     }
@@ -62,8 +63,8 @@ function createBoundModel<
       docs: AnyKeys<T> | AnyObject | Array<AnyKeys<T> | AnyObject>,
       options?:
         | InsertManyOptions
-        | Callback<Array<HydratedDocument<T, TMethodsAndOverrides, TVirtuals>> | InsertManyResult>,
-      callback?: Callback<Array<HydratedDocument<T, TMethodsAndOverrides, TVirtuals>> | InsertManyResult>,
+        | Callback<Array<HydratedDocument<T, TMethodsAndOverrides, TVirtuals>> | InsertManyResult<T>>,
+      callback?: Callback<Array<HydratedDocument<T, TMethodsAndOverrides, TVirtuals>> | InsertManyResult<T>>,
     ) {
       const tId = this.getTenant();
       const cb = typeof options === "function" ? options : callback;
@@ -99,9 +100,9 @@ function createBoundModel<
  * It adds support for multi-tenancy on document level (adding a tenant reference field and include this in unique indexes).
  * Furthermore it provides an API for tenant bound models.
  */
-class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
+export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
   public schema: S;
-  private options: Required<MongoTenantOptions>;
+  private options: Required<MongooseTenantOptions>;
   private _modelCache: Record<string, Record<string, BoundModel<unknown>>>;
 
   /**
@@ -124,7 +125,6 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
 
   /**
    * Apply the mongo tenant plugin to the given schema.
-   *
    */
   apply(): void {
     this.extendSchema().compoundIndexes().injectApi().installMiddleWare();
@@ -132,46 +132,36 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
 
   /**
    * Returns the boolean flag whether the mongo tenant is enabled.
-   *
-   * @returns {boolean}
    */
-  isEnabled(): typeof this.options["enabled"] {
+  isEnabled() {
     return this.options.enabled;
   }
 
   /**
    * Return the name of the tenant id field. Defaults to **tenantId**.
-   *
-   * @returns {string}
    */
-  getTenantIdKey(): typeof this.options["tenantIdKey"] {
+  getTenantIdKey() {
     return this.options.tenantIdKey;
   }
 
   /**
    * Return the type of the tenant id field. Defaults to **String**.
-   *
-   * @returns {unknown}
    */
-  getTenantIdType(): typeof this.options["tenantIdType"] {
+  getTenantIdType() {
     return this.options.tenantIdType;
   }
 
   /**
    * Return the method name for accessing tenant-bound models.
-   *
-   * @returns {string}
    */
-  getAccessorMethod(): typeof this.options["accessorMethod"] {
+  getAccessorMethod() {
     return this.options.accessorMethod;
   }
 
   /**
    * Check if tenant id is a required field.
-   *
-   * @return {boolean}
    */
-  isTenantIdRequired(): typeof this.options["requireTenantId"] {
+  isTenantIdRequired() {
     return this.options.requireTenantId;
   }
 
@@ -182,9 +172,9 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
    * plugin installed in these models is compatible to the plugin of the host
    * model. If they are compatible they are one the same "level".
    *
-   * @param {MongoTenant} plugin
+   * @param {MongooseTenant} plugin
    */
-  isCompatibleTo<T extends MongoTenant<Schema<unknown>, Record<string, unknown>>>(plugin?: T): boolean {
+  isCompatibleTo<T extends MongooseTenant<Schema<unknown>, Record<string, unknown>>>(plugin?: T): boolean {
     return Boolean(
       plugin &&
         typeof plugin.getAccessorMethod === "function" &&
@@ -246,8 +236,6 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
   /**
    * Inject the user-space entry point for mongo tenant.
    * This method adds a static Model method to retrieve tenant bound sub-classes.
-   *
-   * @returns {MongoTenant}
    */
   injectApi(): this {
     const isEnabled = this.isEnabled();
@@ -322,7 +310,6 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
    *
    * @param {Connection} unawareDb
    * @param {*} tenantId
-   * @returns {Connection}
    */
   createTenantAwareDb(unawareDb: Connection, tenantId: unknown): Connection {
     const self = this;
@@ -396,8 +383,8 @@ class MongoTenant<S extends Schema, O extends MongoTenantOptions> {
  * @param {mongoose.Schema} schema
  * @param {Object} options
  */
-function mongoTenantPlugin<T extends Schema>(schema: T, options: MongoTenantOptions) {
-  const mongoTenant = new MongoTenant(schema, options);
+function mongoTenantPlugin<T extends Schema>(schema: T, options: MongooseTenantOptions) {
+  const mongoTenant = new MongooseTenant(schema, options);
   mongoTenant.apply();
 }
 

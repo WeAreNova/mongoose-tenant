@@ -1,0 +1,40 @@
+{
+  "name": "mongoose-tenant",
+  "version": "2.0.0",
+  "description": "A document-based multi-tenancy plugin for mongoose.",
+  "source": "index.ts",
+  "types": "lib/index.d.ts",
+  "main": "index.js",
+  "bugs": {
+    "url": "https://github.com/WeAreNova/mongoose-tenant/issues"
+  },
+  "homepage": "https://github.com/WeAreNova/mongoose-tenant#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WeAreNova/mongoose-tenant",
+    "directory": "lib"
+  },
+  "scripts": {},
+  "author": {
+    "name": "David Parrish",
+    "url": "https://github.com/dvprrsh"
+  },
+  "contributors": [
+    "RealMQ GmbH <service@realmq.com>",
+    "Alrik Zachert <alrik@realmq.com>",
+    "Henning Panke <henning@realmq.com>"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "multi-tenancy",
+    "multitenancy",
+    "multi-tenant",
+    "multitenant",
+    "mongoose",
+    "mongodb",
+    "mongo"
+  ],
+  "peerDependencies": {
+    "mongoose": "^6.0.0"
+  }
+}
