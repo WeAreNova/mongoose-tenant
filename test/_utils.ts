@@ -8,7 +8,6 @@
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost/mongo-tenant-test";
 import mongoTenantPlugin from "lib";
 import type { BoundModel, MongooseTenantOptions } from "lib/types";
-import mochaMongoose from "mocha-mongoose";
 import mongoose, { Model, Schema, SchemaDefinition, SchemaOptions } from "mongoose";
 
 let testModelUnifier = 0;
@@ -44,8 +43,7 @@ export function createTestModel<T extends boolean = true>(
 
 export function clearDatabase() {
   mochaMongoose(MONGO_URI);
-
-  beforeEach(function (done) {
+  beforeAll(function (done) {
     if (mongoose.connection.db) return done();
     mongoose.connect(MONGO_URI, done);
   });
