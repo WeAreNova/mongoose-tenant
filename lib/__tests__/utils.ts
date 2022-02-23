@@ -5,10 +5,9 @@
  * @license     https://github.com/craftup/node-mongo-tenant/blob/master/LICENSE MIT
  */
 
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost/mongo-tenant-test";
-import mongoTenantPlugin from "lib";
-import type { BoundModel, MongooseTenantOptions } from "lib/types";
 import mongoose, { Model, Schema, SchemaDefinition, SchemaOptions } from "mongoose";
+import mongoTenantPlugin from "../";
+import type { BoundModel, MongooseTenantOptions } from "..//types";
 
 let testModelUnifier = 0;
 
@@ -41,10 +40,13 @@ export function createTestModel<T extends boolean = true>(
     : Model<unknown>;
 }
 
-export function clearDatabase() {
-  mochaMongoose(MONGO_URI);
-  beforeAll(function (done) {
-    if (mongoose.connection.db) return done();
-    mongoose.connect(MONGO_URI, done);
-  });
+export async function connect() {
+  await mongoose.connect(process.env.MONGO_URL!);
+}
+
+export async function clearDatabase() {
+  for (const collection in mongoose.connection.collections) {
+    await mongoose.connection.dropCollection(collection);
+  }
+  await mongoose.disconnect();
 }

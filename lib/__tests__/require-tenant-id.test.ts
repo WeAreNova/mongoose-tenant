@@ -5,34 +5,41 @@
  * @license     https://github.com/craftup/node-mongo-tenant/blob/master/LICENSE MIT
  */
 
-import { assert } from "chai";
-import { clearDatabase, createTestModel } from "./_utils";
+import { clearDatabase, connect, createTestModel } from "./utils";
 
-describe("MongoTenant", function () {
-  describe("requireTenantId", function () {
+beforeAll(async () => {
+  await connect();
+});
+
+afterAll(async () => {
+  await clearDatabase();
+});
+
+describe("MongoTenant", () => {
+  describe("requireTenantId", () => {
     clearDatabase();
 
-    it("should allow a nullable tenant id by default.", function (next) {
+    it("should allow a nullable tenant id by default.", (next) => {
       const TestModel = createTestModel({});
 
       TestModel.byTenant(null).create({}, function (err, doc) {
-        assert(!err, "Expected creation of 1 test entity to work.");
-        assert(!doc.getTenant());
+        expect(!err).toBeTruthy();
+        expect(!doc.getTenant()).toBeTruthy();
         next();
       });
     });
 
-    it("should allow an undefined tenant id by default.", function (next) {
+    it("should allow an undefined tenant id by default.", (next) => {
       const TestModel = createTestModel({});
 
       TestModel.byTenant(undefined).create({}, function (err, doc) {
-        assert(!err, "Expected creation of 1 test entity to work.");
-        assert(!doc.getTenant());
+        expect(!err).toBeTruthy();
+        expect(!doc.getTenant()).toBeTruthy();
         next();
       });
     });
 
-    it("should not allow a nullable tenant id when tenant id is required.", function (next) {
+    it("should not allow a nullable tenant id when tenant id is required.", (next) => {
       const TestModel = createTestModel(
         {},
         {
@@ -43,12 +50,12 @@ describe("MongoTenant", function () {
       );
 
       TestModel.byTenant(null).create({}, function (err) {
-        assert(err, "Expected creation of 1 test entity to fail.");
+        expect(err).toBeTruthy();
         next();
       });
     });
 
-    it("should not allow an undefined tenant id when tenant id is required.", function (next) {
+    it("should not allow an undefined tenant id when tenant id is required.", (next) => {
       const TestModel = createTestModel(
         {},
         {
@@ -59,7 +66,7 @@ describe("MongoTenant", function () {
       );
 
       TestModel.byTenant(undefined).create({}, function (err) {
-        assert(err, "Expected creation of 1 test entity no fail.");
+        expect(err).toBeTruthy();
         next();
       });
     });
