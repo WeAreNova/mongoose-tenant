@@ -3,13 +3,16 @@
   "version": "2.0.0",
   "private": true,
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --project ./lib/tsconfig.json",
     "test": "jest --detectOpenHandles",
     "prepare": "husky install"
   },
   "workspaces": [
     "lib"
   ],
+  "engines": {
+    "npm": ">=8.0.0"
+  },
   "author": {
     "name": "David Parrish",
     "url": "https://github.com/dvprrsh"

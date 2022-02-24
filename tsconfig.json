@@ -4,13 +4,14 @@
     "target": "ES6",
     "module": "ES6",
     "moduleResolution": "node",
-    "baseUrl": "./",
+    "baseUrl": "lib",
     "declaration": true,
     "sourceMap": true,
     "outDir": "./build",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": true
+    "strict": true,
+    "typeRoots": ["node_modules/@types"]
   },
   "include": ["lib", "__test__"]
 }
