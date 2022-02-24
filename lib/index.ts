@@ -24,24 +24,30 @@ import type {
   PipelineStage,
   Schema,
 } from "mongoose";
-import type { BoundModel, MongooseTenantOptions } from "./types";
+import type { BoundDocument, BoundModel, MongooseTenantOptions } from "./types";
 
 function createBoundModel<
-  TBase extends new (...args: any[]) => Model<T, TQueryHelpers, TMethodsAndOverrides, TVirtuals>,
+  TBase extends Model<T, TQueryHelpers, TMethodsAndOverrides, TVirtuals>,
   T = any,
   TQueryHelpers = Record<string, never>,
   TMethodsAndOverrides = Record<string, never>,
   TVirtuals = Record<string, never>,
 >(BaseModel: TBase, tenantId: unknown, tenantIdKey: string, db: Connection) {
-  return class extends BaseModel {
-    public db = db;
-    public readonly hasTenantContext = true as const;
-    // @ts-expect-error - getTenant is optional on a base model but required on a bound model
-    public getTenant() {
+  return class _BoundModel extends (BaseModel as Model<any, TQueryHelpers, TMethodsAndOverrides, TVirtuals>) {
+    public static readonly db = db;
+    public static readonly hasTenantContext = true as const;
+    public static getTenant() {
       return tenantId as T[keyof T];
     }
 
-    aggregate<R>(
+    constructor(...args: any[]) {
+      super(...args);
+      this.db = _BoundModel.db;
+      this.hasTenantContext = _BoundModel.hasTenantContext;
+      this.getTenant = _BoundModel.getTenant;
+    }
+
+    static aggregate<R>(
       // eslint-disable-next-line @typescript-eslint/ban-types
       ...args: [pipeline?: PipelineStage[], options?: mongodb.AggregateOptions | Function, callback?: Callback<R[]>]
     ): Aggregate<R[]> {
@@ -59,7 +65,7 @@ function createBoundModel<
       return super.aggregate.apply(this, args as any) as Aggregate<R[]>;
     }
 
-    insertMany(
+    static insertMany(
       docs: AnyKeys<T> | AnyObject | Array<AnyKeys<T> | AnyObject>,
       options?:
         | InsertManyOptions
@@ -88,11 +94,11 @@ function createBoundModel<
         if (!Array.isArray(res)) return res;
         cb(
           null,
-          res.map((doc) => new this(doc)),
+          res.map((doc) => new this(doc) as BoundDocument<T, TMethodsAndOverrides, TVirtuals>),
         );
       }) as any; // typescript error as insert many expects a promise to be returned
     }
-  } as unknown as BoundModel<T, TQueryHelpers, TMethodsAndOverrides, TVirtuals>;
+  } as BoundModel<T, TQueryHelpers, TMethodsAndOverrides, TVirtuals>;
 }
 
 /**
@@ -220,6 +226,9 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
     // apply tenancy awareness to field level unique indexes
     this.schema.eachPath((key, path) => {
       if (path.options.unique !== true || path.options.preserveUniqueKey === true) return;
+      // remove previous index
+      (path as AnyObject)._index = null;
+      delete path.options.unique;
       // create a new one that includes the tenant id field
       this.schema.index(
         {
@@ -240,10 +249,12 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
   injectApi(): this {
     const isEnabled = this.isEnabled();
     const modelCache = this._modelCache;
-    const createTenantAwareModel = this.createTenantAwareModel;
+    const createTenantAwareModel = this.createTenantAwareModel.bind(this);
 
     this.schema.static(this.getAccessorMethod(), function (tenantId: unknown) {
-      if (!isEnabled) return this;
+      const baseModel = this.base.model(this.modelName);
+
+      if (!isEnabled) return baseModel;
       if (!modelCache[this.modelName]) modelCache[this.modelName] = {};
 
       const strTenantId = String(tenantId);
@@ -251,7 +262,7 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
       // lookup tenant-bound model in cache
       if (!cachedModels[strTenantId]) {
         // Cache the tenant bound model class.
-        cachedModels[strTenantId] = createTenantAwareModel(this, tenantId);
+        cachedModels[strTenantId] = createTenantAwareModel(baseModel, tenantId);
       }
 
       return cachedModels[strTenantId];
@@ -259,9 +270,7 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
 
     const self = this;
     Object.assign(this.schema.statics, {
-      get mongoTenant() {
-        return self;
-      },
+      mongoTenant: self,
     });
 
     return this;
@@ -357,6 +366,10 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
         if (this.model.hasTenantContext) {
           const tenantId = this.model.getTenant!();
           this.setQuery({ ...this.getQuery(), [tenantIdKey]: tenantId });
+          const update = this.getUpdate();
+          if (Object.hasOwnProperty.call(update, tenantIdKey)) {
+            delete (update as { [key: typeof tenantIdKey]: unknown })[tenantIdKey];
+          }
           this.set(tenantIdKey, tenantId);
         }
       },
