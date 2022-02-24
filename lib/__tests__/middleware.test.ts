@@ -23,9 +23,7 @@ describe("Middleware", () => {
   it("should add tenant on all discriminators of a model", async () => {
     const TestModel = createTestModel(
       { kind: String },
-      {
-        schemaOptions: { discriminatorKey: "kind" },
-      },
+      { schemaOptions: { discriminatorKey: "kind" }, mongoTenant: { tenantIdType: Number } },
     );
     TestModel.discriminator("disc_key", new Schema({ inherit: Boolean }));
 
@@ -36,9 +34,9 @@ describe("Middleware", () => {
   });
 
   it("should inherit properties from Model when using discriminator", async () => {
-    const TestModel = createTestModel({ kind: String });
+    const TestModel = createTestModel({ kind: String }, { mongoTenant: { tenantIdType: Number } });
 
-    let DiscriminatorTest = createTestModel({ inherit: Boolean });
+    let DiscriminatorTest = createTestModel({ inherit: Boolean }, { mongoTenant: { tenantIdType: Number } });
 
     DiscriminatorTest = TestModel.discriminator("DiscriminatorTest", DiscriminatorTest.schema);
 
@@ -50,22 +48,22 @@ describe("Middleware", () => {
   });
 
   it("should bind tenant context to Model.count().", async () => {
-    const TestModel = createTestModel({});
+    const TestModel = createTestModel({}, { mongoTenant: { tenantIdType: Number } });
     await expect(TestModel.byTenant(1).create([{}, {}, {}])).resolves.toHaveLength(3);
     await expect(TestModel.byTenant(1).count()).resolves.toBe(3);
     await expect(TestModel.byTenant(2).count()).resolves.toBe(0);
   });
 
   it("should avoid tenant context jumping on Model.count().", async () => {
-    const TestModel = createTestModel({});
+    const TestModel = createTestModel({}, { mongoTenant: { tenantIdType: Number } });
     await expect(TestModel.byTenant(1).create([{}, {}, {}])).resolves.toHaveLength(3);
-    await expect(TestModel.byTenant(2).count({ tenantId: 1 })).resolves.toBe(0);
-    await expect(TestModel.byTenant(1).count({ tenantId: 2 })).resolves.toBe(0);
+    await expect(TestModel.byTenant(2).count({ tenant: 1 })).resolves.toBe(0);
+    await expect(TestModel.byTenant(1).count({ tenant: 2 })).resolves.toBe(3);
   });
 
   it("should not affect Model.count() when not in tenant context.", async () => {
-    const TestModel = createTestModel({});
-    await expect(TestModel.create([{ tenantId: 1 }, { tenantId: 2 }, { tenantId: 3 }])).resolves.toHaveLength(3);
+    const TestModel = createTestModel({}, { mongoTenant: { tenantIdType: Number } });
+    await expect(TestModel.create([{ tenant: 1 }, { tenant: 2 }, { tenant: 3 }])).resolves.toHaveLength(3);
     await expect(TestModel.count()).resolves.toBe(3);
   });
 
@@ -79,8 +77,8 @@ describe("Middleware", () => {
   it("should avoid tenant context jumping on Model.find().", async () => {
     const TestModel = createTestModel({});
     await expect(TestModel.byTenant("tenant1").create([{}, {}, {}])).resolves.toHaveLength(3);
-    await expect(TestModel.byTenant("tenant2").find({ tenantId: "tenant1" })).resolves.toHaveLength(0);
-    await expect(TestModel.byTenant("tenant1").find({ tenantId: "tenant2" })).resolves.toHaveLength(3);
+    await expect(TestModel.byTenant("tenant2").find({ tenant: "tenant1" })).resolves.toHaveLength(0);
+    await expect(TestModel.byTenant("tenant1").find({ tenant: "tenant2" })).resolves.toHaveLength(3);
   });
 
   it("should pass down tenant context on Model.find().populate()", async () => {
@@ -89,8 +87,8 @@ describe("Middleware", () => {
       docs: [{ type: Schema.Types.ObjectId, ref: SubDocModel.modelName }],
     }) as BoundModel<{ docs: PopulatedDoc<HydratedDocument<AnyObject>, mongoose.Types.ObjectId>[] }>;
 
-    const [doc1, doc2] = await SubDocModel.create([{ tenantId: "tenant1" }, { tenantId: "tenant2" }]);
-    await expect(ParentModel.create({ tenantId: "tenant1", docs: [doc1._id, doc2._id] })).resolves.toBeTruthy();
+    const [doc1, doc2] = await SubDocModel.create([{ tenant: "tenant1" }, { tenant: "tenant2" }]);
+    await expect(ParentModel.create({ tenant: "tenant1", docs: [doc1._id, doc2._id] })).resolves.toBeTruthy();
 
     const docs = await ParentModel.byTenant("tenant1").find().populate("docs").exec();
     expect(docs).toHaveLength(1);
@@ -106,8 +104,8 @@ describe("Middleware", () => {
       docs: [{ type: Schema.Types.ObjectId, ref: SubDocModel.modelName }],
     }) as BoundModel<{ docs: PopulatedDoc<HydratedDocument<AnyObject>, mongoose.Types.ObjectId>[] }>;
 
-    const [doc1, doc2] = await SubDocModel.create([{ tenantId: "tenant1" }, { tenantId: "tenant2" }]);
-    await expect(ParentModel.create({ tenantId: "tenant1", docs: [doc1._id, doc2._id] })).resolves.toBeTruthy();
+    const [doc1, doc2] = await SubDocModel.create([{ tenant: "tenant1" }, { tenant: "tenant2" }]);
+    await expect(ParentModel.create({ tenant: "tenant1", docs: [doc1._id, doc2._id] })).resolves.toBeTruthy();
 
     const docs = await ParentModel.byTenant("tenant1").find().populate("docs").exec();
     expect(docs).toHaveLength(1);
@@ -125,7 +123,7 @@ describe("Middleware", () => {
     }) as BoundModel<{ docs: PopulatedDoc<HydratedDocument<AnyObject>, mongoose.Types.ObjectId>[] }>;
 
     const [doc1, doc2] = await SubDocModel.create([{ otherTenantId: "tenant1" }, { otherTenantId: "tenant2" }]);
-    await expect(ParentModel.create({ tenantId: "tenant1", docs: [doc1._id, doc2._id] })).resolves.toBeTruthy();
+    await expect(ParentModel.create({ tenant: "tenant1", docs: [doc1._id, doc2._id] })).resolves.toBeTruthy();
 
     const docs = await ParentModel.byTenant("tenant1").find().populate("docs").exec();
     expect(docs).toHaveLength(1);
@@ -140,7 +138,7 @@ describe("Middleware", () => {
     const TestModel = createTestModel({});
 
     await expect(
-      TestModel.create([{ tenantId: "tenant1" }, { tenantId: "tenant2" }, { tenantId: "tenant3" }]),
+      TestModel.create([{ tenant: "tenant1" }, { tenant: "tenant2" }, { tenant: "tenant3" }]),
     ).resolves.toHaveLength(3);
 
     const doc = await TestModel.byTenant("tenant1").findOne().exec();
@@ -153,29 +151,29 @@ describe("Middleware", () => {
     const TestModel = createTestModel({});
 
     await expect(
-      TestModel.create([{ tenantId: "tenant1" }, { tenantId: "tenant2" }, { tenantId: "tenant3" }]),
+      TestModel.create([{ tenant: "tenant1" }, { tenant: "tenant2" }, { tenant: "tenant3" }]),
     ).resolves.toHaveLength(3);
-    await expect(TestModel.byTenant("tenant1").findOne({ tenantId: "tenant2" })).resolves.toHaveProperty(
+    await expect(TestModel.byTenant("tenant1").findOne({ tenant: "tenant2" })).resolves.toHaveProperty(
       "tenant",
       "tenant1",
     );
-    await expect(TestModel.byTenant("tenant4").findOne({ tenantId: "tenant1" })).resolves.toBeFalsy();
+    await expect(TestModel.byTenant("tenant4").findOne({ tenant: "tenant1" })).resolves.toBeFalsy();
   });
 
   it("should bind tenant context to Model.findOneAndRemove().", async () => {
     const TestModel = createTestModel({});
 
     await expect(
-      TestModel.create([{ tenantId: "tenant1" }, { tenantId: "tenant2" }, { tenantId: "tenant3" }]),
+      TestModel.create([{ tenant: "tenant1" }, { tenant: "tenant2" }, { tenant: "tenant3" }]),
     ).resolves.toHaveLength(3);
     await expect(TestModel.byTenant("tenant1").findOneAndRemove()).resolves.toHaveProperty("tenant", "tenant1");
     await expect(TestModel.byTenant("tenant4").findOneAndRemove()).resolves.toBeFalsy();
   });
 
   it("should bind tenant context to Model.findOneAndUpdate().", async () => {
-    const TestModel = createTestModel({ someField: String });
+    const TestModel = createTestModel({ someField: { type: String } });
 
-    await expect(TestModel.create([{ tenantId: "tenant1" }, { tenantId: "tenant2" }])).resolves.toHaveLength(2);
+    await expect(TestModel.create([{ tenant: "tenant1" }, { tenant: "tenant2" }])).resolves.toHaveLength(2);
 
     const doc = await TestModel.byTenant("tenant1").findOneAndUpdate({}, { someField: "some-value" }).exec();
     expect(doc).toBeTruthy();
@@ -186,40 +184,46 @@ describe("Middleware", () => {
   });
 
   it("should bind tenant context to Model.save().", async () => {
-    const Model = createTestModel({}).byTenant(1);
+    const Model = createTestModel({}, { mongoTenant: { tenantIdType: Number } }).byTenant(1);
     const doc = new Model();
     await expect(doc.save()).resolves.toHaveProperty("tenant", 1);
   });
 
   it("should avoid tenant jumping on Model.save().", async () => {
-    const Model = createTestModel({}).byTenant(1);
+    const Model = createTestModel({}, { mongoTenant: { tenantIdType: Number } }).byTenant(1);
     const doc = new Model();
-    doc.set("tenantId", 2);
+    doc.set("tenant", 2);
     await expect(doc.save()).resolves.toHaveProperty("tenant", 1);
   });
 
   it("should bind custom tenant key context to static Model.create() method.", async () => {
-    const Model = createTestModel({}, { mongoTenant: { tenantIdKey: "customTenantId" } }).byTenant(1);
+    const Model = createTestModel(
+      {},
+      { mongoTenant: { tenantIdKey: "customTenantId", tenantIdType: Number } },
+    ).byTenant(1);
     await expect(Model.create({})).resolves.toHaveProperty("customTenantId", 1);
   });
 
   it("should avoid custom tenant key jumping on static Model.create() method.", async () => {
-    const Model = createTestModel({}, { mongoTenant: { tenantIdKey: "customTenantId" } }).byTenant(1);
+    const Model = createTestModel(
+      {},
+      { mongoTenant: { tenantIdKey: "customTenantId", tenantIdType: Number } },
+    ).byTenant(1);
     await expect(Model.create({ customTenantId: 2 })).resolves.toHaveProperty("customTenantId", 1);
   });
 
   it("should bind tenant context to static Model.create() method.", async () => {
-    const Model = createTestModel({}).byTenant(1);
+    const Model = createTestModel({}, { mongoTenant: { tenantIdType: Number } }).byTenant(1);
     await expect(Model.create({})).resolves.toHaveProperty("tenant", 1);
   });
 
   it("should avoid tenant jumping on static Model.create() method.", async () => {
-    const Model = createTestModel({}).byTenant(1);
+    const Model = createTestModel({}, { mongoTenant: { tenantIdType: Number } }).byTenant(1);
     await expect(Model.create({ tenant: 2 })).resolves.toHaveProperty("tenant", 1);
   });
 
   it("should bind tenant context to documents created by Model.insertMany() method.", async () => {
-    const Model = createTestModel({}).byTenant(1);
+    const Model = createTestModel({}, { mongoTenant: { tenantIdType: Number } }).byTenant(1);
     const docs = await Model.insertMany([{}, {}]);
     docs.forEach((doc) => {
       expect(doc).toHaveProperty("hasTenantContext", true);
@@ -228,7 +232,7 @@ describe("Middleware", () => {
   });
 
   it("should bind tenant context to documents created by Model.insertMany() method.", async () => {
-    const Model = createTestModel({}).byTenant(1);
+    const Model = createTestModel({}, { mongoTenant: { tenantIdType: Number } }).byTenant(1);
     const docs = await Model.insertMany([{ tenant: 2 }, { tenant: -3 }, { tenant: "2" }]);
     docs.forEach((doc) => {
       expect(doc).toHaveProperty("hasTenantContext", true);
@@ -237,7 +241,7 @@ describe("Middleware", () => {
   });
 
   it("should bind tenant context to a single document created by Model.insertMany() method.", async () => {
-    const Model = createTestModel({}).byTenant(1);
+    const Model = createTestModel({}, { mongoTenant: { tenantIdType: Number } }).byTenant(1);
     const docs = await Model.insertMany({ tenant: 2 });
     docs.forEach((doc) => {
       expect(doc).toHaveProperty("hasTenantContext", true);
@@ -246,12 +250,12 @@ describe("Middleware", () => {
   });
 
   it("Model.insertMany() method should fail properly.", async () => {
-    const Model = createTestModel({}).byTenant(1);
+    const Model = createTestModel({}, { mongoTenant: { tenantIdType: Number } }).byTenant(1);
     await expect(Model.insertMany([{ field: "A" }, { _id: "A" }])).rejects.toThrow();
   });
 
   it("Model.insertMany() method should work without tenant context.", async () => {
-    const Model = createTestModel({});
+    const Model = createTestModel({}, { mongoTenant: { tenantIdType: Number } });
     const docs = await Model.insertMany([{ tenant: 1 }, { tenant: 2 }]);
     expect(docs).toHaveLength(2);
     expect(docs[0]).toHaveProperty("tenant", 1);
@@ -259,31 +263,26 @@ describe("Middleware", () => {
     docs.forEach((doc) => expect(doc).toBeInstanceOf(Model));
   });
 
-  it("should bind tenant context to Model.update().", async () => {
+  it("should bind tenant context to Model.findOneAndUpdate().", async () => {
     const TestModel = createTestModel({ someField: String });
 
     await expect(TestModel.create([{ tenant: "tenant1" }, { tenant: "tenant2" }])).resolves.toHaveLength(2);
-    await expect(TestModel.byTenant("tenant1").updateOne({}, { someField: "some-value" })).resolves.toHaveProperty(
-      "tenant",
-      "tenant1",
-    );
+    await expect(
+      TestModel.byTenant("tenant1").findOneAndUpdate({}, { someField: "some-value" }),
+    ).resolves.toHaveProperty("tenant", "tenant1");
 
     const docs = await TestModel.byTenant("tenant1").find({}).exec();
     docs.forEach((doc) => expect(doc).toHaveProperty("someField", "some-value"));
   });
 
-  it("should avoid overwriting tenant context on Model.update().", async () => {
+  it("should avoid overwriting tenant context on Model.findOneAndUpdate().", async () => {
     const TestModel = createTestModel({ someField: String });
 
     await expect(TestModel.create([{ tenant: "tenant1" }, { tenant: "tenant2" }])).resolves.toHaveLength(2);
     await expect(
-      TestModel.byTenant("tenant1").updateOne(
+      TestModel.byTenant("tenant1").findOneAndUpdate(
         {},
-        {
-          tenant: "tenant2",
-          someField: "some-value",
-          $set: { tenant: "tenant2" },
-        },
+        { tenant: "tenant2", someField: "some-value", $set: { tenant: "tenant2" } },
       ),
     ).resolves.toHaveProperty("tenant", "tenant1");
 
@@ -292,12 +291,16 @@ describe("Middleware", () => {
     expect(docs[0]).toHaveProperty("someField", "some-value");
   });
 
-  it("should preserve tenant context on Model.update() with truthy overwrite option.", async () => {
+  it("should preserve tenant context on Model.findOneAndUpdate() with truthy overwrite option.", async () => {
     const TestModel = createTestModel({ someField: String });
 
-    await expect(TestModel.create([{ tenantId: "tenant1" }, { tenantId: "tenant2" }])).resolves.toHaveLength(2);
+    await expect(TestModel.create([{ tenant: "tenant1" }, { tenant: "tenant2" }])).resolves.toHaveLength(2);
     await expect(
-      TestModel.byTenant("tenant1").updateOne({}, { tenant: "tenant2", someField: "some-value" }, { overwrite: true }),
+      TestModel.byTenant("tenant1").findOneAndUpdate(
+        {},
+        { $set: { tenant: "tenant2", someField: "some-value" } },
+        { overwrite: true },
+      ),
     ).resolves.toHaveProperty("tenant", "tenant1");
 
     const docs = await TestModel.byTenant("tenant1").find({}).exec();
@@ -305,14 +308,14 @@ describe("Middleware", () => {
     expect(docs[0]).toHaveProperty("someField", "some-value");
   });
 
-  it("should not affect Model.update() when not in tenant context.", async () => {
+  it("should not affect Model.findOneAndUpdate() when not in tenant context.", async () => {
     const TestModel = createTestModel({ someField: String });
 
     await expect(
       TestModel.create([{ tenant: "tenant1" }, { tenant: "tenant2", someField: "some-value" }]),
     ).resolves.toHaveLength(2);
     await expect(
-      TestModel.updateOne({ tenant: "tenant1" }, { tenant: "tenant2", someField: "some-value" }),
+      TestModel.findOneAndUpdate({ tenant: "tenant1" }, { tenant: "tenant2", someField: "some-value" }),
     ).resolves.toHaveProperty("tenant", "tenant2");
     const docs = await TestModel.find({}).exec();
     expect(docs).toHaveLength(2);
@@ -326,7 +329,8 @@ describe("Middleware", () => {
     const TestModel = createTestModel({ someField: String });
 
     await expect(TestModel.create([{ tenant: "tenant1" }, { tenant: "tenant2" }])).resolves.toHaveLength(2);
-    await expect(TestModel.byTenant("tenant1").updateMany({}, { someField: "some-value" }, {})).resolves.toHaveLength(
+    await expect(TestModel.byTenant("tenant1").updateMany({}, { someField: "some-value" }, {})).resolves.toHaveProperty(
+      "modifiedCount",
       1,
     );
 
@@ -337,14 +341,14 @@ describe("Middleware", () => {
   it("should avoid overwriting tenant context on Model.updateMany().", async () => {
     const TestModel = createTestModel({ someField: String });
 
-    await expect(TestModel.create([{ tenantId: "tenant1" }, { tenantId: "tenant2" }])).resolves.toHaveLength(2);
+    await expect(TestModel.create([{ tenant: "tenant1" }, { tenant: "tenant2" }])).resolves.toHaveLength(2);
     await expect(
       TestModel.byTenant("tenant1").updateMany(
         {},
         {
-          tenantId: "tenant2",
+          tenant: "tenant2",
           someField: "some-value",
-          $set: { tenantId: "tenant2" },
+          $set: { tenant: "tenant2" },
         },
       ),
     ).resolves.toBeTruthy();
@@ -358,10 +362,10 @@ describe("Middleware", () => {
     const TestModel = createTestModel({ someField: String });
 
     await expect(
-      TestModel.create([{ tenantId: "tenant1" }, { tenantId: "tenant2", someField: "some-value" }]),
+      TestModel.create([{ tenant: "tenant1" }, { tenant: "tenant2", someField: "some-value" }]),
     ).resolves.toHaveLength(2);
     await expect(
-      TestModel.updateMany({ tenantId: "tenant1" }, { tenantId: "tenant2", someField: "some-value" }),
+      TestModel.updateMany({ tenant: "tenant1" }, { tenant: "tenant2", someField: "some-value" }),
     ).resolves.toBeTruthy();
 
     const docs = await TestModel.find({}).exec();

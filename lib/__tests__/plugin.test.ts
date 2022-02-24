@@ -17,18 +17,13 @@ afterAll(async () => {
   await clearDatabase();
 });
 
-describe("MongoTenant", () => {
-  describe("#Plugin", () => {
-    it("should have correct mongoose plugin signature.", () => {
-      expect(typeof mongoTenant === "function").toBeTruthy();
-    });
+describe("Plugin", () => {
+  it("should have correct mongoose plugin signature.", async () => {
+    expect(typeof mongoTenant).toBe("function");
+  });
 
-    it("should register as mongoose schema plugin.", () => {
-      const testSchema = new Schema({});
-
-      expect(() => {
-        testSchema.plugin(mongoTenant);
-      }).not.toThrow();
-    });
+  it("should register as mongoose schema plugin.", async () => {
+    const testSchema = new Schema({});
+    expect(() => testSchema.plugin(mongoTenant)).not.toThrow();
   });
 });

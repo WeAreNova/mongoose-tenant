@@ -18,17 +18,17 @@ afterAll(async () => {
 describe("Integration", () => {
   it("should inject default accessor method.", async () => {
     const Model = createTestModel({});
-    expect(typeof Model.byTenant === "function").toBeTruthy();
+    expect(Model.byTenant).toBeInstanceOf(Function);
   });
 
   it("should expose its tenant binding.", async () => {
     const Model = createTestModel({});
     const ModelBoundToTenant = Model.byTenant(1);
 
-    expect(ModelBoundToTenant.hasTenantContext === true).toBeTruthy();
-    expect(new ModelBoundToTenant().hasTenantContext === true).toBeTruthy();
-    expect(typeof Model.hasTenantContext === "undefined").toBeTruthy();
-    expect(typeof new Model().hasTenantContext === "undefined").toBeTruthy();
+    expect(ModelBoundToTenant.hasTenantContext).toBe(true);
+    expect(new ModelBoundToTenant().hasTenantContext).toBe(true);
+    expect(Model.hasTenantContext).toBeUndefined();
+    expect(new Model().hasTenantContext).toBeUndefined();
   });
 
   it("should bind the model to the proper tenant.", async () => {
@@ -50,22 +50,22 @@ describe("Integration", () => {
   it("should bind Model.remove() to correct tenant context.", async () => {
     const TestModel = createTestModel({});
 
-    await expect(TestModel.create([{ tenantId: "tenant1" }, { tenantId: "tenant2" }])).resolves.toHaveLength(2);
+    await expect(TestModel.create([{ tenant: "tenant1" }, { tenant: "tenant2" }])).resolves.toHaveLength(2);
     await expect(TestModel.byTenant("tenant1").remove({})).resolves.toBeTruthy();
 
     const docs = await TestModel.find({}).exec();
     expect(docs.length).toEqual(1);
-    expect(docs[0].tenantId).toEqual("tenant2");
+    expect(docs[0].tenant).toEqual("tenant2");
   });
 
-  it("should bind Model.aggregate(obj[], func) to correct tenant context.", async () => {
+  it("should bind Model.aggregate(obj[]) to correct tenant context.", async () => {
     const TestModel = createTestModel({ num: Number });
 
     await expect(
       TestModel.create([
-        { tenantId: "tenant1", num: 10 },
-        { tenantId: "tenant1", num: 12 },
-        { tenantId: "tenant2", num: 20 },
+        { tenant: "tenant1", num: 10 },
+        { tenant: "tenant1", num: 12 },
+        { tenant: "tenant2", num: 20 },
       ]),
     ).resolves.toHaveLength(3);
 
@@ -73,7 +73,7 @@ describe("Integration", () => {
       .aggregate([
         {
           $group: {
-            _id: "$tenantId",
+            _id: "$tenant",
             sum: { $sum: "$num" },
           },
         },
@@ -96,36 +96,39 @@ describe("Integration", () => {
     await expect(t1Instance.save()).resolves.toBeTruthy();
     await expect(t2Instance.save()).resolves.toBeTruthy();
 
-    await expect(ModelClassT2.deleteOne({ _id: t1Instance._id })).resolves.toBeFalsy();
+    await expect(ModelClassT2.deleteOne({ _id: t1Instance._id })).resolves.toHaveProperty("deletedCount", 0);
     await expect(ModelClassT1.findById(t1Instance._id)).resolves.toBeTruthy();
   });
 
-  it("should bind Model.deleteOne(conditions, cb) to correct tenant context.", async () => {
+  it("should bind Model.deleteOne(conditions) to correct tenant context.", async () => {
     const TestModel = createTestModel({});
 
-    await expect(TestModel.create([{ tenantId: "tenant1" }, { tenantId: "tenant2" }])).resolves.toHaveLength(2);
-    await expect(TestModel.byTenant("tenant1").deleteOne({ tenantId: "tenant2" })).resolves.toBeFalsy();
+    await expect(TestModel.create([{ tenant: "tenant1" }, { tenant: "tenant2" }])).resolves.toHaveLength(2);
+    await expect(TestModel.byTenant("tenant1").findOneAndDelete({ tenant: "tenant2" })).resolves.toHaveProperty(
+      "tenant",
+      "tenant1",
+    );
 
     const docs = await TestModel.find({}).exec();
     expect(docs.length).toEqual(1);
-    expect(docs[0].tenantId).toEqual("tenant2");
+    expect(docs[0].tenant).toEqual("tenant2");
   });
 
-  it("should bind Model.deleteMany(conditions, options, cb) to correct tenant context.", async () => {
+  it("should bind Model.deleteMany(conditions, options) to correct tenant context.", async () => {
     const TestModel = createTestModel({ num: Number });
 
     await expect(
       TestModel.create([
-        { tenantId: "tenant1", num: 1 },
-        { tenantId: "tenant1", num: 1 },
-        { tenantId: "tenant2", num: 1 },
+        { tenant: "tenant1", num: 1 },
+        { tenant: "tenant1", num: 1 },
+        { tenant: "tenant2", num: 1 },
       ]),
     ).resolves.toHaveLength(3);
 
-    await expect(TestModel.byTenant("tenant1").deleteMany({ num: 1 })).resolves.toHaveLength(2);
+    await expect(TestModel.byTenant("tenant1").deleteMany({ num: 1 })).resolves.toHaveProperty("deletedCount", 2);
 
     const docs = await TestModel.find({}).exec();
     expect(docs).toHaveLength(1);
-    expect(docs[0].tenantId).toEqual("tenant2");
+    expect(docs[0].tenant).toEqual("tenant2");
   });
 });

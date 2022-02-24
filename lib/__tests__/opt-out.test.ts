@@ -15,20 +15,10 @@ afterAll(async () => {
   await clearDatabase();
 });
 
-describe("MongoTenant", () => {
-  describe("#Opt-Out", () => {
-    it("accessor method should deliver default mongoose model when mongoTenant is disabled.", () => {
-      const Model = createTestModel(
-        {},
-        {
-          mongoTenant: {
-            enabled: false,
-          },
-        },
-      );
-
-      expect(typeof Model.byTenant === "function").toBeTruthy();
-      expect(typeof Model.byTenant(1).getTenant === "undefined").toBeTruthy();
-    });
+describe("Opt-Out", () => {
+  it("accessor method should deliver default mongoose model when mongoTenant is disabled.", async () => {
+    const Model = createTestModel({}, { mongoTenant: { enabled: false } });
+    expect(typeof Model.byTenant).toBe("function");
+    expect(Model.byTenant(1).getTenant).toBeUndefined();
   });
 });

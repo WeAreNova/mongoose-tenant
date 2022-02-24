@@ -30,25 +30,26 @@ describe("Indexes", () => {
       },
     );
 
-    for (const index of Model.schema.indexes() as unknown as Array<[def: IndexDefinition, options: IndexOptions]>) {
-      if (index[1] && index[1].name) {
-        indexesFound[index[1].name] = true;
+    for (const [def, options] of Model.schema.indexes() as unknown as Array<
+      [def: IndexDefinition, options?: IndexOptions]
+    >) {
+      if (!options?.name) continue;
 
-        switch (index[1].name) {
-          case "index1":
-            expect("tenantId" in index[0]).toBeTruthy();
-            expect("field1" in index[0]).toBeTruthy();
-            break;
-          case "index2":
-            expect(!("tenantId" in index[0])).toBeTruthy();
-            expect("field2" in index[0]).toBeTruthy();
-            break;
-          case "index3":
-            expect("tenantId" in index[0]).toBeTruthy();
-            expect("field1" in index[0]).toBeTruthy();
-            expect("field2" in index[0]).toBeTruthy();
-            break;
-        }
+      indexesFound[options.name] = true;
+      switch (options.name) {
+        case "index1":
+          expect(def).toHaveProperty("tenant");
+          expect(def).toHaveProperty("field1");
+          break;
+        case "index2":
+          expect(def).not.toHaveProperty("tenant");
+          expect(def).toHaveProperty("field2");
+          break;
+        case "index3":
+          expect(def).toHaveProperty("tenant");
+          expect(def).toHaveProperty("field1");
+          expect(def).toHaveProperty("field2");
+          break;
       }
     }
 
@@ -70,17 +71,18 @@ describe("Indexes", () => {
       },
     });
 
-    for (const index of Model.schema.indexes() as unknown as Array<[def: IndexDefinition, options: IndexOptions]>) {
-      if ("field1" in index[0]) {
+    for (const [def] of Model.schema.indexes() as unknown as Array<[def: IndexDefinition, options: IndexOptions]>) {
+      console.log({ def });
+      if ("field1" in def) {
         indexesFound.field1 = true;
-        expect("tenantId" in index[0]).toBeTruthy();
-        expect(!("field2" in index[0])).toBeTruthy();
+        expect(def).toHaveProperty("tenant");
+        expect(def).not.toHaveProperty("field2");
       }
 
-      if ("field2" in index[0]) {
+      if ("field2" in def) {
         indexesFound.field2 = true;
-        expect(!("tenantId" in index[0])).toBeTruthy();
-        expect(!("field1" in index[0])).toBeTruthy();
+        expect(def).not.toHaveProperty("tenant");
+        expect(def).not.toHaveProperty("field1");
       }
     }
 
@@ -102,18 +104,20 @@ describe("Indexes", () => {
       },
     });
 
-    for (const index of Model.schema.indexes() as unknown as Array<[def: IndexDefinition, options: IndexOptions]>) {
-      if ("field1" in index[0]) {
+    for (const [def, options] of Model.schema.indexes() as unknown as Array<
+      [def: IndexDefinition, options: IndexOptions]
+    >) {
+      if ("field1" in def) {
         indexesFound.field1 = true;
-        expect("sparse" in index[1]).toBeTruthy();
-        expect("tenantId" in index[0]).toBeTruthy();
-        expect(!("field2" in index[0])).toBeTruthy();
+        expect(options).toHaveProperty("sparse");
+        expect(def).toHaveProperty("tenant");
+        expect(def).not.toHaveProperty("field2");
       }
 
-      if ("field2" in index[0]) {
+      if ("field2" in def) {
         indexesFound.field2 = true;
-        expect(!("tenantId" in index[0])).toBeTruthy();
-        expect(!("field1" in index[0])).toBeTruthy();
+        expect(def).not.toHaveProperty("tenant");
+        expect(def).not.toHaveProperty("field1");
       }
     }
 
@@ -135,18 +139,20 @@ describe("Indexes", () => {
       },
     });
 
-    for (const index of Model.schema.indexes() as unknown as Array<[def: IndexDefinition, options: IndexOptions]>) {
-      if ("field1" in index[0]) {
+    for (const [def, options] of Model.schema.indexes() as unknown as Array<
+      [def: IndexDefinition, options: IndexOptions]
+    >) {
+      if ("field1" in def) {
         indexesFound.field1 = true;
-        expect("partialFilterExpression" in index[1]).toBeTruthy();
-        expect("tenantId" in index[0]).toBeTruthy();
-        expect(!("field2" in index[0])).toBeTruthy();
+        expect(options).toHaveProperty("partialFilterExpression");
+        expect(def).toHaveProperty("tenant");
+        expect(def).not.toHaveProperty("field2");
       }
 
-      if ("field2" in index[0]) {
+      if ("field2" in def) {
         indexesFound.field2 = true;
-        expect(!("tenantId" in index[0])).toBeTruthy();
-        expect(!("field1" in index[0])).toBeTruthy();
+        expect(def).not.toHaveProperty("tenant");
+        expect(def).not.toHaveProperty("field1");
       }
     }
 

@@ -15,60 +15,28 @@ afterAll(async () => {
   await clearDatabase();
 });
 
-describe("MongoTenant", () => {
-  describe("requireTenantId", () => {
-    clearDatabase();
+describe("require-tenant-id", () => {
+  clearDatabase();
 
-    it("should allow a nullable tenant id by default.", (next) => {
-      const TestModel = createTestModel({});
+  it("should allow a nullable tenant id by default.", async () => {
+    const TestModel = createTestModel({});
+    const doc = await TestModel.byTenant(null).create({});
+    expect(doc.getTenant()).toBeFalsy();
+  });
 
-      TestModel.byTenant(null).create({}, function (err, doc) {
-        expect(!err).toBeTruthy();
-        expect(!doc.getTenant()).toBeTruthy();
-        next();
-      });
-    });
+  it("should allow an undefined tenant id by default.", async () => {
+    const TestModel = createTestModel({});
+    const doc = await TestModel.byTenant(undefined).create({});
+    expect(doc.getTenant()).toBeFalsy();
+  });
 
-    it("should allow an undefined tenant id by default.", (next) => {
-      const TestModel = createTestModel({});
+  it("should not allow a nullable tenant id when tenant id is required.", async () => {
+    const TestModel = createTestModel({}, { mongoTenant: { requireTenantId: true } });
+    await expect(TestModel.byTenant(null).create({})).rejects.toThrow();
+  });
 
-      TestModel.byTenant(undefined).create({}, function (err, doc) {
-        expect(!err).toBeTruthy();
-        expect(!doc.getTenant()).toBeTruthy();
-        next();
-      });
-    });
-
-    it("should not allow a nullable tenant id when tenant id is required.", (next) => {
-      const TestModel = createTestModel(
-        {},
-        {
-          mongoTenant: {
-            requireTenantId: true,
-          },
-        },
-      );
-
-      TestModel.byTenant(null).create({}, function (err) {
-        expect(err).toBeTruthy();
-        next();
-      });
-    });
-
-    it("should not allow an undefined tenant id when tenant id is required.", (next) => {
-      const TestModel = createTestModel(
-        {},
-        {
-          mongoTenant: {
-            requireTenantId: true,
-          },
-        },
-      );
-
-      TestModel.byTenant(undefined).create({}, function (err) {
-        expect(err).toBeTruthy();
-        next();
-      });
-    });
+  it("should not allow an undefined tenant id when tenant id is required.", async () => {
+    const TestModel = createTestModel({}, { mongoTenant: { requireTenantId: true } });
+    await expect(TestModel.byTenant(undefined).create({})).rejects.toThrow();
   });
 });

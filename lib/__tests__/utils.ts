@@ -7,7 +7,9 @@
 
 import mongoose, { Model, Schema, SchemaDefinition, SchemaOptions } from "mongoose";
 import mongoTenantPlugin from "../";
-import type { BoundModel, MongooseTenantOptions } from "..//types";
+import type { BoundModel, MongooseTenantOptions } from "../types";
+
+mongoose.set("returnOriginal", false);
 
 let testModelUnifier = 0;
 
@@ -20,10 +22,7 @@ export function createTestModel<T extends boolean = true>(
     schemaOptions?: SchemaOptions;
   },
 ) {
-  options = {
-    withPlugin: true as T,
-    ...options,
-  };
+  options = { withPlugin: true as T, ...options };
 
   const schema = new Schema(schemaDefinition, options.schemaOptions);
 
