@@ -1,8 +1,8 @@
-/* eslint-disable @typescript-eslint/no-this-alias */
 /**
  * mongo-tenant - Multi-tenancy for mongoose on document level.
  *
  * @copyright   Copyright (c) 2016-2017, craftup
+ * @copyright   Copyright (c) 2022, dvprrsh
  * @license     https://github.com/WeAreNova/mongoose-tenant/blob/main/LICENSE MIT
  */
 
