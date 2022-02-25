@@ -1,4 +1,6 @@
+# misc
 node_modules
+.eslintcache
 
 # build
 build/
