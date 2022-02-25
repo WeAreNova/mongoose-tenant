@@ -16,9 +16,7 @@ describe("Plugin Options", () => {
   });
 
   it("should be capable of being disabled.", async () => {
-    const mongoTenant = new MongooseTenant(new Schema({}), {
-      enabled: false,
-    });
+    const mongoTenant = new MongooseTenant(new Schema({}), { enabled: false });
     expect(mongoTenant.isEnabled() === false).toBeTruthy();
   });
 

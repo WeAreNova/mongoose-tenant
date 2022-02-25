@@ -73,7 +73,6 @@ describe("Indexes", () => {
     });
 
     for (const [def] of Model.schema.indexes() as unknown as Array<[def: IndexDefinition, options: IndexOptions]>) {
-      console.log({ def });
       if ("field1" in def) {
         indexesFound.field1 = true;
         expect(def).toHaveProperty("tenant");
