@@ -24,10 +24,10 @@ describe("Integration", () => {
 
   it("should expose its tenant binding.", async () => {
     const Model = createTestModel({});
-    const ModelBoundToTenant = Model.byTenant(1);
+    const ScopedModel = Model.byTenant(1);
 
-    expect(ModelBoundToTenant.hasTenantContext).toBe(true);
-    expect(new ModelBoundToTenant().hasTenantContext).toBe(true);
+    expect(ScopedModel.hasTenantContext).toBe(true);
+    expect(new ScopedModel().hasTenantContext).toBe(true);
     expect(Model.hasTenantContext).toBeUndefined();
     expect(new Model().hasTenantContext).toBeUndefined();
   });

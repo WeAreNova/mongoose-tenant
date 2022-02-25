@@ -8,7 +8,7 @@
 
 import mongoose, { Model, Schema, SchemaDefinition, SchemaOptions } from "mongoose";
 import mongoTenantPlugin from "../";
-import type { BoundModel, MongooseTenantOptions } from "../types";
+import type { MongooseTenantOptions, ScopedModel } from "../types";
 
 mongoose.set("returnOriginal", false);
 
@@ -36,7 +36,7 @@ export function createTestModel<T extends boolean = true>(
   }
 
   return mongoose.model(`mongoTenantTestModel${++testModelUnifier}`, schema) as T extends true
-    ? BoundModel<unknown>
+    ? ScopedModel<unknown>
     : Model<unknown>;
 }
 

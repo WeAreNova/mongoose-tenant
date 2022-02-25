@@ -7,7 +7,7 @@
  */
 
 import mongoose, { AnyObject, HydratedDocument, PopulatedDoc, Schema } from "mongoose";
-import { BoundModel } from "../types";
+import type { ScopedModel } from "../types";
 import { clearDatabase, connect, createTestModel } from "./utils";
 
 beforeAll(async () => {
@@ -86,7 +86,7 @@ describe("Middleware", () => {
     const SubDocModel = createTestModel({});
     const ParentModel = createTestModel({
       docs: [{ type: Schema.Types.ObjectId, ref: SubDocModel.modelName }],
-    }) as BoundModel<{ docs: PopulatedDoc<HydratedDocument<AnyObject>, mongoose.Types.ObjectId>[] }>;
+    }) as ScopedModel<{ docs: PopulatedDoc<HydratedDocument<AnyObject>, mongoose.Types.ObjectId>[] }>;
 
     const [doc1, doc2] = await SubDocModel.create([{ tenant: "tenant1" }, { tenant: "tenant2" }]);
     await expect(ParentModel.create({ tenant: "tenant1", docs: [doc1._id, doc2._id] })).resolves.toBeTruthy();
@@ -103,7 +103,7 @@ describe("Middleware", () => {
     const SubDocModel = createTestModel({}, { withPlugin: false });
     const ParentModel = createTestModel({
       docs: [{ type: Schema.Types.ObjectId, ref: SubDocModel.modelName }],
-    }) as BoundModel<{ docs: PopulatedDoc<HydratedDocument<AnyObject>, mongoose.Types.ObjectId>[] }>;
+    }) as ScopedModel<{ docs: PopulatedDoc<HydratedDocument<AnyObject>, mongoose.Types.ObjectId>[] }>;
 
     const [doc1, doc2] = await SubDocModel.create([{ tenant: "tenant1" }, { tenant: "tenant2" }]);
     await expect(ParentModel.create({ tenant: "tenant1", docs: [doc1._id, doc2._id] })).resolves.toBeTruthy();
@@ -121,7 +121,7 @@ describe("Middleware", () => {
     const SubDocModel = createTestModel({}, { mongoTenant: { tenantIdKey: "otherTenantId" } });
     const ParentModel = createTestModel({
       docs: [{ type: Schema.Types.ObjectId, ref: SubDocModel.modelName }],
-    }) as BoundModel<{ docs: PopulatedDoc<HydratedDocument<AnyObject>, mongoose.Types.ObjectId>[] }>;
+    }) as ScopedModel<{ docs: PopulatedDoc<HydratedDocument<AnyObject>, mongoose.Types.ObjectId>[] }>;
 
     const [doc1, doc2] = await SubDocModel.create([{ otherTenantId: "tenant1" }, { otherTenantId: "tenant2" }]);
     await expect(ParentModel.create({ tenant: "tenant1", docs: [doc1._id, doc2._id] })).resolves.toBeTruthy();

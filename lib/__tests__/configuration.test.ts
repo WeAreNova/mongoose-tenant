@@ -46,18 +46,6 @@ describe("Plugin Options", () => {
     expect(mongoTenant.getTenantIdType()).toEqual(Number);
   });
 
-  it("should have a default accessor method name of `byTenant`.", async () => {
-    const mongoTenant = new MongooseTenant(new Schema({}));
-    expect(mongoTenant.getAccessorMethod()).toEqual("byTenant");
-  });
-
-  it("should be capable of setting a custom accessor method name.", async () => {
-    const mongoTenant = new MongooseTenant(new Schema({}), {
-      accessorMethod: "tenancy",
-    });
-    expect(mongoTenant.getAccessorMethod()).toEqual("tenancy");
-  });
-
   it("should not require tenant id field by default.", async () => {
     const mongoTenant = new MongooseTenant(new Schema({}));
     expect(mongoTenant.isTenantIdRequired()).toBe(false);
