@@ -1,9 +1,9 @@
 /// <reference types="mongoose" />
-import { BoundFields } from "./types";
+import { ScopedFields } from "./types";
 
 declare module "mongoose" {
   // eslint-disable-next-line @typescript-eslint/ban-types
-  interface Model<T, TQueryHelpers = {}, TMethodsAndOverrides = {}, TVirtuals = {}> extends Partial<BoundFields<T>> {
+  interface Model<T, TQueryHelpers = {}, TMethodsAndOverrides = {}, TVirtuals = {}> extends Partial<ScopedFields<T>> {
     mongoTenant?: any;
   }
 

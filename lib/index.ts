@@ -24,16 +24,16 @@ import type {
   PipelineStage,
   Schema,
 } from "mongoose";
-import type { BoundDocument, BoundModel, MongooseTenantOptions } from "./types";
+import type { MongooseTenantOptions, ScopedDocument, ScopedModel } from "./types";
 
-function createBoundModel<
+function createScopedModel<
   TBase extends Model<T, TQueryHelpers, TMethodsAndOverrides, TVirtuals>,
   T = any,
   TQueryHelpers = Record<string, never>,
   TMethodsAndOverrides = Record<string, never>,
   TVirtuals = Record<string, never>,
->(BaseModel: TBase, tenantId: unknown, tenantIdKey: string, db: Connection) {
-  return class _BoundModel extends (BaseModel as Model<any, TQueryHelpers, TMethodsAndOverrides, TVirtuals>) {
+>(BaseModel: TBase, tenantId: unknown, tenantKey: string, db: Connection) {
+  return class _ScopedModel extends (BaseModel as Model<any, TQueryHelpers, TMethodsAndOverrides, TVirtuals>) {
     public static readonly db = db;
     public static readonly hasTenantContext = true as const;
     public static getTenant() {
@@ -42,9 +42,9 @@ function createBoundModel<
 
     constructor(...args: any[]) {
       super(...args);
-      this.db = _BoundModel.db;
-      this.hasTenantContext = _BoundModel.hasTenantContext;
-      this.getTenant = _BoundModel.getTenant;
+      this.db = _ScopedModel.db;
+      this.hasTenantContext = _ScopedModel.hasTenantContext;
+      this.getTenant = _ScopedModel.getTenant;
     }
 
     static aggregate<R>(
@@ -55,11 +55,11 @@ function createBoundModel<
       const tId = this.getTenant();
 
       if (!pipeline) {
-        args[0] = [{ $match: { [tenantIdKey]: tId } }];
+        args[0] = [{ $match: { [tenantKey]: tId } }];
       } else if ((pipeline[0] as PipelineStage.Match).$match) {
-        (pipeline[0] as PipelineStage.Match).$match[tenantIdKey] = tId;
+        (pipeline[0] as PipelineStage.Match).$match[tenantKey] = tId;
       } else {
-        pipeline.unshift({ $match: { [tenantIdKey]: tId } });
+        pipeline.unshift({ $match: { [tenantKey]: tId } });
       }
 
       return super.aggregate.apply(this, args as any) as Aggregate<R[]>;
@@ -77,14 +77,14 @@ function createBoundModel<
 
       // Model.insertMany supports a single document as parameter
       if (!Array.isArray(docs)) {
-        docs[tenantIdKey as keyof typeof docs] = tId;
+        docs[tenantKey as keyof typeof docs] = tId;
       } else {
         docs.forEach(function (doc) {
-          doc[tenantIdKey as keyof typeof doc] = tId;
+          doc[tenantKey as keyof typeof doc] = tId;
         });
       }
 
-      // ensure the returned docs are instanced of the bound multi tenant model
+      // ensure the returned docs are instanced of the scoped multi tenant model
       if (!cb) {
         return super.insertMany(docs, options as InsertManyOptions).then((res) => res.map((doc) => new this(doc)));
       }
@@ -94,22 +94,22 @@ function createBoundModel<
         if (!Array.isArray(res)) return res;
         cb(
           null,
-          res.map((doc) => new this(doc) as BoundDocument<T, TMethodsAndOverrides, TVirtuals>),
+          res.map((doc) => new this(doc) as ScopedDocument<T, TMethodsAndOverrides, TVirtuals>),
         );
       }) as any; // typescript error as insert many expects a promise to be returned
     }
-  } as BoundModel<T, TQueryHelpers, TMethodsAndOverrides, TVirtuals>;
+  } as ScopedModel<T, TQueryHelpers, TMethodsAndOverrides, TVirtuals>;
 }
 
 /**
  * MongoTenant is a class aimed for use in mongoose schema plugin scope.
  * It adds support for multi-tenancy on document level (adding a tenant reference field and include this in unique indexes).
- * Furthermore it provides an API for tenant bound models.
+ * Furthermore it provides an API for scoped models.
  */
 export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
   public schema: S;
   private options: Required<MongooseTenantOptions>;
-  private _modelCache: Record<string, Record<string, BoundModel<unknown>>>;
+  private _modelCache: Record<string, Record<string, ScopedModel<unknown>>>;
 
   /**
    * Create a new mongo tenant from a given schema.
@@ -158,13 +158,6 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
   }
 
   /**
-   * Return the method name for accessing tenant-bound models.
-   */
-  getAccessorMethod() {
-    return this.options.accessorMethod;
-  }
-
-  /**
    * Check if tenant id is a required field.
    */
   isTenantIdRequired() {
@@ -182,10 +175,7 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
    */
   isCompatibleTo<T extends MongooseTenant<Schema<unknown>, Record<string, unknown>>>(plugin?: T): boolean {
     return Boolean(
-      plugin &&
-        typeof plugin.getAccessorMethod === "function" &&
-        typeof plugin.getTenantIdKey === "function" &&
-        this.getTenantIdKey() === plugin.getTenantIdKey(),
+      plugin && typeof plugin.getTenantIdKey === "function" && this.getTenantIdKey() === plugin.getTenantIdKey(),
     );
   }
 
@@ -244,14 +234,14 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
 
   /**
    * Inject the user-space entry point for mongo tenant.
-   * This method adds a static Model method to retrieve tenant bound sub-classes.
+   * This method adds a static Model method to retrieve tenant scoped sub-classes.
    */
   injectApi(): this {
     const isEnabled = this.isEnabled();
     const modelCache = this._modelCache;
     const createTenantAwareModel = this.createTenantAwareModel.bind(this);
 
-    this.schema.static(this.getAccessorMethod(), function (tenantId: unknown) {
+    this.schema.static("byTenant", function (tenantId: unknown) {
       const baseModel = this.base.model(this.modelName);
 
       if (!isEnabled) return baseModel;
@@ -259,9 +249,9 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
 
       const strTenantId = String(tenantId);
       const cachedModels = modelCache[this.modelName];
-      // lookup tenant-bound model in cache
+      // lookup scoped model in cache
       if (!cachedModels[strTenantId]) {
-        // Cache the tenant bound model class.
+        // cache the scoped model class
         cachedModels[strTenantId] = createTenantAwareModel(baseModel, tenantId);
       }
 
@@ -277,7 +267,7 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
   }
 
   /**
-   * Create a model class that is bound the given tenant.
+   * Create a model class that is scoped to the given tenant.
    * So that all operations on this model prohibit leaving the tenant scope.
    *
    * @param BaseModel
@@ -287,7 +277,7 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
     const tenantIdKey = this.getTenantIdKey();
     const db = this.createTenantAwareDb(BaseModel.db, tenantId);
 
-    const MongoTenantModel = createBoundModel(BaseModel, tenantId, tenantIdKey, db);
+    const MongoTenantModel = createScopedModel(BaseModel, tenantId, tenantIdKey, db);
 
     // inherit all static properties from the mongoose base model
     for (const staticProperty of Object.getOwnPropertyNames(BaseModel)) {
@@ -315,7 +305,7 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
   }
 
   /**
-   * Create db connection bound to a specific tenant
+   * Create db connection scoped to a specific tenant
    *
    * @param {Connection} unawareDb
    * @param {*} tenantId

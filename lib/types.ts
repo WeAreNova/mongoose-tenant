@@ -8,7 +8,7 @@ export interface MongooseTenantOptions {
    */
   enabled?: boolean;
   /**
-   * The name of the tenant id field.
+   * The name of the tenantId field.
    * @default "tenant"
    */
   tenantIdKey?: string;
@@ -18,44 +18,39 @@ export interface MongooseTenantOptions {
    */
   tenantIdType?: unknown;
   /**
-   * The name of the tenant bound model getter method.
-   * @default "byTenant"
-   */
-  accessorMethod?: string;
-  /**
    * Whether tenant id field should be required.
    * @default false
    */
   requireTenantId?: boolean;
 }
 
-export declare class BoundFields<T> {
+export declare class ScopedFields<T> {
   public getTenant(): T[keyof T];
   public byTenant(tenantId: unknown): this;
   public readonly hasTenantContext: true;
 }
 
-export type BoundDocument<
+export type ScopedDocument<
   T,
   TMethodsAndOverrides = Record<string, never>,
   TVirtuals = Record<string, never>,
-> = HydratedDocument<T, TMethodsAndOverrides & BoundFields<T>, TVirtuals>;
+> = HydratedDocument<T, TMethodsAndOverrides & ScopedFields<T>, TVirtuals>;
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface BoundModel<
+export interface ScopedModel<
   T,
   TQueryHelpers = Record<string, never>,
   TMethodsAndOverrides = Record<string, never>,
   TVirtuals = Record<string, never>,
-> extends Omit<Model<T, TQueryHelpers, TMethodsAndOverrides & BoundFields<T>, TVirtuals>, keyof BoundFields<T>>,
-    BoundFields<T> {
-  new (doc?: T, fields?: any | null, options?: boolean | AnyObject): BoundDocument<
+> extends Omit<Model<T, TQueryHelpers, TMethodsAndOverrides & ScopedFields<T>, TVirtuals>, keyof ScopedFields<T>>,
+    ScopedFields<T> {
+  new (doc?: T, fields?: any | null, options?: boolean | AnyObject): ScopedDocument<
     T,
-    TMethodsAndOverrides & Pick<BoundFields<T>, "getTenant">,
+    TMethodsAndOverrides & Pick<ScopedFields<T>, "getTenant">,
     TVirtuals
   >;
 
   /** Adds a discriminator type. */
-  discriminator<D>(name: string | number, schema: Schema, value?: string | number | ObjectId): BoundModel<D>;
+  discriminator<D>(name: string | number, schema: Schema, value?: string | number | ObjectId): ScopedModel<D>;
   discriminator<NewT, U>(name: string | number, schema: Schema<NewT, U>, value?: string | number | ObjectId): U;
 }
