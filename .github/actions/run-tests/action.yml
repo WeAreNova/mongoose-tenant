@@ -1,0 +1,22 @@
+name: Test mongoose-tenant
+description: Runs the tests for mongoose-tenant
+runs:
+  using: composite
+  steps:
+    - name: Setup Node
+      uses: actions/setup-node@v2
+      with:
+        node-version: "14"
+        cache: "npm"
+
+    - name: Update npm to v8
+      shell: bash
+      run: npm i -g npm@8
+
+    - name: Install
+      shell: bash
+      run: npm ci
+
+    - name: Test
+      shell: bash
+      run: npm test

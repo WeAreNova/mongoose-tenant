@@ -1,4 +1,9 @@
 node_modules
-coverage
+
+# build
 build/
+
+# testing
+coverage
 globalConfig.json
+test-report.xml

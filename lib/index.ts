@@ -401,4 +401,5 @@ function mongoTenantPlugin<T extends Schema>(schema: T, options: MongooseTenantO
   mongoTenant.apply();
 }
 
+export * from "./types";
 export default mongoTenantPlugin;

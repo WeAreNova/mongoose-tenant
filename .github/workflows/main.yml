@@ -1,0 +1,70 @@
+name: Build and Publish
+on:
+  workflow_dispatch:
+    inputs:
+      version-increment:
+        description: version update
+        default: patch
+        required: true
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+
+  build_and_publish:
+    name: Build & Publish
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.BOT_PAT }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: "14"
+          registry-url: "https://registry.npmjs.org"
+          cache: "npm"
+
+      - run: npm i -g npm@8
+
+      - name: Increment Version
+        run: |
+          git config user.email "action@github.com"
+          git config user.name "Nova Bot"
+          npm version --workspaces --include-workspace-root ${{ github.event.inputs.version-increment }}
+
+      - name: Build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Publish
+        run: |
+          cd build
+          npm publish --access public --tag
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+
+      - name: Get Tag
+        id: git-tag
+        uses: ./.github/actions/get-tag
+
+      - name: Push Version Change
+        env:
+          GITHUB_TOKEN: ${{ secrets.BOT_PAT }}
+        run: |
+          git add .
+          git commit --amend --no-edit
+          git tag -d ${{ steps.git-tag.outputs.tag }}
+          git tag ${{ steps.git-tag.outputs.tag }}
+          git push origin ${GITHUB_REF#refs/heads/}
+          git push origin ${{ steps.git-tag.outputs.tag }}

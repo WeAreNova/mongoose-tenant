@@ -14,7 +14,7 @@ module.exports = {
   // cacheDirectory: "/private/var/folders/h2/9kf0sq4s1kz95jbs9zvmlmxh0000gn/T/jest_dx",
 
   // Automatically clear mock calls, instances and results before every test
-  clearMocks: true,
+  // clearMocks: false,
 
   // Indicates whether the coverage information should be collected while executing the test
   collectCoverage: true,
@@ -26,7 +26,7 @@ module.exports = {
   coverageDirectory: "coverage",
 
   // An array of regexp pattern strings used to skip coverage collection
-  coveragePathIgnorePatterns: ["/node_modules/", "lib/__tests__"],
+  coveragePathIgnorePatterns: ["/node_modules/", "lib/__tests__/utils.ts"],
 
   // Indicates which provider should be used to instrument code for coverage
   coverageProvider: "v8",
@@ -64,7 +64,7 @@ module.exports = {
   // maxWorkers: "50%",
 
   // An array of directory names to be searched recursively up from the requiring module's location
-  // moduleDirectories: ["node_modules"],
+  moduleDirectories: ["node_modules", "lib"],
 
   // An array of file extensions your modules use
   // moduleFileExtensions: [
@@ -150,7 +150,7 @@ module.exports = {
   // testRegex: [],
 
   // This option allows the use of a custom results processor
-  // testResultsProcessor: undefined,
+  testResultsProcessor: "jest-sonar-reporter",
 
   // This option allows use of a custom test runner
   // testRunner: "jest-circus/runner",
@@ -174,7 +174,7 @@ module.exports = {
   // unmockedModulePathPatterns: undefined,
 
   // Indicates whether each individual test should be reported during the run
-  verbose: true,
+  // verbose: true,
 
   // An array of regexp patterns that are matched against all source file paths before re-running tests in watch mode
   watchPathIgnorePatterns: ["globalConfig"],

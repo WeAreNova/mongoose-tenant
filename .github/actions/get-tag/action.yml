@@ -1,0 +1,15 @@
+name: Get Tag
+description: Get the current git tag
+
+outputs:
+  tag:
+    description: The current git tag
+    value: ${{ steps.git-tag.outputs.result }}
+
+runs:
+  using: composite
+  steps:
+    - name: Get Tag
+      id: git-tag
+      run: echo "::set-output name=result::$(git describe --tags)"
+      shell: bash
