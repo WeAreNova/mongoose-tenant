@@ -102,7 +102,7 @@ function createScopedModel<
 }
 
 /**
- * MongoTenant is a class aimed for use in mongoose schema plugin scope.
+ * MongooseTenant is a class aimed for use in mongoose schema plugin scope.
  * It adds support for multi-tenancy on document level (adding a tenant reference field and include this in unique indexes).
  * Furthermore it provides an API for scoped models.
  */
@@ -173,7 +173,7 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
    *
    * @param {MongooseTenant} plugin
    */
-  isCompatibleTo<T extends MongooseTenant<Schema<unknown>, Record<string, unknown>>>(plugin?: T): boolean {
+  isCompatibleTo<T extends MongooseTenant<Schema<any>, Record<string, unknown>>>(plugin?: T): boolean {
     return Boolean(
       plugin && typeof plugin.getTenantIdKey === "function" && this.getTenantIdKey() === plugin.getTenantIdKey(),
     );
@@ -251,7 +251,7 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
       const cachedModels = modelCache[this.modelName];
       // lookup scoped model in cache
       if (!cachedModels[strTenantId]) {
-        // cache the scoped model class
+        // cache the scoped model
         cachedModels[strTenantId] = createTenantAwareModel(baseModel, tenantId);
       }
 
@@ -314,10 +314,10 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
     const self = this;
     const awareDb: Connection = Object.create(unawareDb);
     awareDb.model = (name: string) => {
-      const unawareModel = unawareDb.model(name);
+      const unawareModel = unawareDb.model(name) as ScopedModel<unknown>;
       const otherPlugin = unawareModel.mongoTenant;
       if (!self.isCompatibleTo(otherPlugin)) return unawareModel;
-      return (unawareModel as any)[otherPlugin!.getAccessorMethod()](tenantId);
+      return unawareModel.byTenant(tenantId);
     };
     return awareDb;
   }

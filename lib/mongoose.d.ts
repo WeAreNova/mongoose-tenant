@@ -1,10 +1,11 @@
 /// <reference types="mongoose" />
+/* eslint-disable @typescript-eslint/ban-types */
+import { MongooseTenant } from "index";
 import { ScopedFields } from "./types";
 
 declare module "mongoose" {
-  // eslint-disable-next-line @typescript-eslint/ban-types
   interface Model<T, TQueryHelpers = {}, TMethodsAndOverrides = {}, TVirtuals = {}> extends Partial<ScopedFields<T>> {
-    mongoTenant?: any;
+    mongoTenant?: MongooseTenant<Schema<T>, {}>;
   }
 
   interface IndexOptions {
