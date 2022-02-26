@@ -50,7 +50,7 @@ jobs:
       - name: Publish
         run: |
           cd build
-          npm publish --access public --tag
+          npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
 
