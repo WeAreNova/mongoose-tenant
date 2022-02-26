@@ -7,8 +7,8 @@
  */
 
 import mongoose, { Model, Schema, SchemaDefinition, SchemaOptions } from "mongoose";
-import mongoTenantPlugin from "../";
-import type { MongooseTenantOptions, ScopedModel } from "../types";
+import mongoTenantPlugin from "../lib";
+import type { MongooseTenantOptions, ScopedModel } from "../lib/types";
 
 mongoose.set("returnOriginal", false);
 

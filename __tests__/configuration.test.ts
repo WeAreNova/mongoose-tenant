@@ -7,7 +7,7 @@
  */
 
 import { Schema } from "mongoose";
-import { MongooseTenant } from "..";
+import { MongooseTenant } from "../lib";
 
 describe("Plugin Options", () => {
   it("should be enabled by default.", async () => {

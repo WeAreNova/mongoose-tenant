@@ -7,7 +7,7 @@
  */
 
 import { Schema } from "mongoose";
-import mongoTenant from "..";
+import mongoTenant from "../lib";
 import { clearDatabase, connect } from "./utils";
 
 beforeAll(async () => {

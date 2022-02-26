@@ -7,7 +7,7 @@
  */
 
 import mongoose, { AnyObject, HydratedDocument, PopulatedDoc, Schema } from "mongoose";
-import type { ScopedModel } from "../types";
+import type { ScopedModel } from "../lib/types";
 import { clearDatabase, connect, createTestModel } from "./utils";
 
 beforeAll(async () => {

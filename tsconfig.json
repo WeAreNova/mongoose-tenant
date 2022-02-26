@@ -12,5 +12,5 @@
     "strict": true,
     "typeRoots": ["node_modules/@types"]
   },
-  "include": ["lib", "__test__"]
+  "include": ["lib", "__tests__"]
 }
