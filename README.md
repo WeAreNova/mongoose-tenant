@@ -32,7 +32,7 @@ There are 3 ways of implementing multi-tenancy in mongoDB:
 
 ### About
 
-Originally forked from [Mongoose Tenant](https://github.com/craftup/node-mongo-tenant), this version of the plugin has been heavily refactored and is built with TypeScript for Mongoose v6. It is also intended to be maintained for the foreseeable future.
+Originally forked from [mongo-tenant](https://github.com/craftup/node-mongo-tenant), this version of the plugin has been heavily refactored and is built with TypeScript for Mongoose v6. It is also intended to be maintained for the foreseeable future.
 
 Mongoose Tenant is a highly configurable plugin solving multi-tenancy problems on a document level.
 
@@ -45,7 +45,7 @@ It creates a tenant-reference field while also taking care of unique indexes. Fu
 npm install --save @wearenova/mongoose-tenant
 
 // with yarn
-$ yarn add @wearenova/Mongoose Tenant
+$ yarn add @wearenova/mongoose-tenant
 ```
 
 ### Usage
@@ -54,7 +54,7 @@ Register the plugin on the relevant mongoose schema.
 
 ```ts
 import mongoose from "mongoose";
-import mongooseTenant from "Mongoose Tenant";
+import mongooseTenant from "@wearenova/mongoose-tenant";
 
 const MySchema = new mongoose.Schema({});
 MySchema.plugin(mongooseTenant);
@@ -78,7 +78,6 @@ new MyScopedModel({
 You can check for tenant context of a model class or instance by checking the `hasTenantContext` property. If this is `truthy` you may want to retrieve the tenant, this can be done via the `getTenant()` method.
 
 ```ts
-
 // When Mongoose Tenant is enabled on a schema, all scoped models
 // and there instances provide the `hasTenantContext` flag
 if (SomeModelClassOrInstance.hasTenantContext) {
