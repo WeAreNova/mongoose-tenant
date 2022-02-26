@@ -1,6 +1,8 @@
 name: Code Scan
 on:
   push:
+    tags:
+      - v*
     branches:
       - main
     paths:
