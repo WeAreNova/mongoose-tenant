@@ -1,6 +1,6 @@
 {
   "name": "@wearenova/mongoose-tenant",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "A document-based multi-tenancy plugin for mongoose.",
   "source": "index.ts",
   "types": "lib/index.d.ts",
