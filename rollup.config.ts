@@ -10,7 +10,8 @@ export default defineConfig({
   external: EXTERNALS,
   output: {
     dir: "build/",
-    format: "esm",
+    format: "cjs",
+    exports: "named",
     sourcemap: true,
   },
   plugins: [
