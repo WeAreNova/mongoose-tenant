@@ -7,6 +7,8 @@ on:
       - main
     paths:
       - lib/**/*.ts
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 jobs:
   scan:
@@ -24,14 +26,14 @@ jobs:
       - name: Get Coverage Results
         uses: ./.github/actions/run-tests
 
-      - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@master
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
         with:
           args: >
             -Dsonar.projectVersion=${{ steps.git-tag.outputs.tag }}
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
       # If you wish to fail your job when the Quality Gate is red, uncomment the
       # following lines. This would typically be used to fail a deployment.
       # - uses: sonarsource/sonarqube-quality-gate-action@master
