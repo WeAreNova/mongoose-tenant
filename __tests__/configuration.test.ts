@@ -22,14 +22,14 @@ describe("Plugin Options", () => {
 
   it("should have a default tenant id key of `tenant`.", async () => {
     const mongoTenant = new MongooseTenant(new Schema({}));
-    expect(mongoTenant.getTenantIdKey()).toEqual("tenant");
+    expect(mongoTenant.tenantIdKey()).toEqual("tenant");
   });
 
   it("should be capable of setting a custom tenant id key.", async () => {
     const mongoTenant = new MongooseTenant(new Schema({}), {
       tenantIdKey: "tenant_id",
     });
-    expect(mongoTenant.getTenantIdKey()).toEqual("tenant_id");
+    expect(mongoTenant.tenantIdKey()).toEqual("tenant_id");
   });
 
   it("should have a default tenant id field type of `String`.", async () => {

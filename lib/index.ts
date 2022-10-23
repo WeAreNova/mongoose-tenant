@@ -183,9 +183,10 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
    * Inject tenantId field into schema definition.
    */
   extendSchema(): this {
-    if (!this.isEnabled()) return this;
+    const tenantKey = this.getTenantIdKey();
+    if (!this.isEnabled() || tenantKey === "_id") return this;
     this.schema.add({
-      [this.getTenantIdKey()]: {
+      [tenantKey]: {
         index: true,
         type: this.getTenantIdType(),
         required: this.isTenantIdRequired(),
