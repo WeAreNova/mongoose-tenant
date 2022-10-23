@@ -243,7 +243,7 @@ export class MongooseTenant<S extends Schema, O extends MongooseTenantOptions> {
     const createTenantAwareModel = this.createTenantAwareModel.bind(this);
 
     this.schema.static("byTenant", function (tenantId: unknown) {
-      const baseModel = this.base.model(this.modelName);
+      const baseModel: Model<any> = this.base.model(this.modelName);
 
       if (!isEnabled) return baseModel;
       if (!modelCache[this.modelName]) modelCache[this.modelName] = {};
